@@ -30,20 +30,21 @@ interface ClipPayload {
 // In-memory clip store for dev server & local network
 const clips = new Map<string, ClipPayload>()
 
-// Periodic cleanup of expired clips
-setInterval(() => {
-  const now = Date.now()
-  for (const [code, clip] of clips.entries()) {
-    if (clip.expiresAt > 0 && clip.expiresAt < now) {
-      clips.delete(code)
-    }
-  }
-}, 30000)
-
 function clipApiPlugin(): Plugin {
   return {
     name: 'clip-api-server',
     configureServer(server) {
+      // Periodic cleanup of expired clips (only active in dev server, unref'd so it never hangs)
+      const cleanupTimer = setInterval(() => {
+        const now = Date.now()
+        for (const [code, clip] of clips.entries()) {
+          if (clip.expiresAt > 0 && clip.expiresAt < now) {
+            clips.delete(code)
+          }
+        }
+      }, 30000)
+      if (cleanupTimer.unref) cleanupTimer.unref()
+
       server.middlewares.use(async (req, res, next) => {
         // Enable CORS
         res.setHeader('Access-Control-Allow-Origin', '*')
