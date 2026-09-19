@@ -8,6 +8,10 @@
     {
       "source": "/api/clip",
       "destination": "/api/clip"
+    },
+    {
+      "source": "/((?!api/.*).*)",
+      "destination": "/index.html"
     }
   ],
   "headers": [
