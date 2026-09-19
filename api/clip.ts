@@ -1,0 +1,179 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node'
+
+interface ClipPayload {
+  code: string
+  type: 'text' | 'code' | 'image' | 'file' | 'mixed'
+  content: string
+  attachment?: {
+    content: string
+    name: string
+    size: number
+    mimeType: string
+  }
+  attachments?: Array<{
+    id?: string
+    content: string
+    name: string
+    size: number
+    mimeType: string
+  }>
+  name?: string
+  size?: number
+  mimeType?: string
+  isEncrypted?: boolean
+  burnAfterRead?: boolean
+  expiresAt: number
+  createdAt: number
+}
+
+// In-memory fallback cache across warm serverless instances
+const globalStore = globalThis as unknown as {
+  __clips_cache__?: Map<string, ClipPayload>
+}
+if (!globalStore.__clips_cache__) {
+  globalStore.__clips_cache__ = new Map<string, ClipPayload>()
+}
+const memoryClips = globalStore.__clips_cache__
+
+// Upstash / Vercel KV REST helpers (active if user links Vercel KV / Upstash Redis)
+const redisUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL
+const redisToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN
+
+async function saveToRedis(key: string, value: ClipPayload, ttlSeconds: number) {
+  if (!redisUrl || !redisToken) return
+  try {
+    const serialized = JSON.stringify(value)
+    await fetch(`${redisUrl}/set/${key}/${encodeURIComponent(serialized)}?ex=${ttlSeconds}`, {
+      headers: { Authorization: `Bearer ${redisToken}` },
+    })
+  } catch (err) {
+    console.error('Redis save error:', err)
+  }
+}
+
+async function getFromRedis(key: string): Promise<ClipPayload | null> {
+  if (!redisUrl || !redisToken) return null
+  try {
+    const res = await fetch(`${redisUrl}/get/${key}`, {
+      headers: { Authorization: `Bearer ${redisToken}` },
+    })
+    if (!res.ok) return null
+    const data = (await res.json()) as { result?: string }
+    if (!data.result) return null
+    return JSON.parse(data.result) as ClipPayload
+  } catch (err) {
+    console.error('Redis get error:', err)
+    return null
+  }
+}
+
+async function deleteFromRedis(key: string) {
+  if (!redisUrl || !redisToken) return
+  try {
+    await fetch(`${redisUrl}/del/${key}`, {
+      headers: { Authorization: `Bearer ${redisToken}` },
+    })
+  } catch {
+    // Ignore
+  }
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Enable CORS for cross-device requests
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end()
+  }
+
+  // POST: Create a new clip
+  if (req.method === 'POST') {
+    try {
+      const data = (typeof req.body === 'string' ? JSON.parse(req.body) : req.body) as Partial<ClipPayload>
+      let code = data.code?.trim() || ''
+
+      if (!code || code.length !== 6 || isNaN(Number(code))) {
+        do {
+          code = Math.floor(100000 + Math.random() * 900000).toString()
+        } while (memoryClips.has(code))
+      }
+
+      const expiresAt = data.expiresAt || Date.now() + 24 * 60 * 60 * 1000
+      const attachments = data.attachments || (data.attachment ? [data.attachment] : undefined)
+      const clip: ClipPayload = {
+        code,
+        type: data.type || 'text',
+        content: data.content || '',
+        attachment: data.attachment || (attachments && attachments[0]),
+        attachments,
+        name: data.name || (attachments && attachments[0]?.name),
+        size: data.size || (attachments ? attachments.reduce((acc, c) => acc + (c.size || 0), 0) : undefined),
+        mimeType: data.mimeType || (attachments && attachments[0]?.mimeType),
+        isEncrypted: !!data.isEncrypted,
+        burnAfterRead: !!data.burnAfterRead,
+        expiresAt,
+        createdAt: Date.now(),
+      }
+
+      // 1. Save in serverless memory
+      memoryClips.set(code, clip)
+
+      // 2. Save in Vercel KV / Upstash Redis if configured
+      const ttlSec = Math.max(60, Math.floor((expiresAt - Date.now()) / 1000))
+      await saveToRedis(`clip:${code}`, clip, ttlSec)
+
+      return res.status(200).json({ success: true, code, clip })
+    } catch (err: unknown) {
+      return res.status(400).json({ success: false, error: (err as Error)?.message || 'Invalid payload' })
+    }
+  }
+
+  // Extract code from query or URL
+  const codeParam = (req.query.code as string) || req.url?.split('?')[0].replace('/api/clip/', '').replace('/api/clip', '').trim()
+
+  // GET: Retrieve clip by code
+  if (req.method === 'GET') {
+    if (!codeParam || codeParam.length !== 6) {
+      return res.status(400).json({ success: false, error: 'Please provide a 6-digit code' })
+    }
+
+    // 1. Try serverless memory
+    let clip = memoryClips.get(codeParam) || null
+
+    // 2. Try Redis / KV if not in memory
+    if (!clip) {
+      clip = await getFromRedis(`clip:${codeParam}`)
+    }
+
+    if (!clip) {
+      return res.status(404).json({ success: false, error: 'Clip not found or expired' })
+    }
+
+    if (clip.expiresAt > 0 && clip.expiresAt < Date.now()) {
+      memoryClips.delete(codeParam)
+      await deleteFromRedis(`clip:${codeParam}`)
+      return res.status(404).json({ success: false, error: 'Clip has expired' })
+    }
+
+    // Handle burn after read
+    if (clip.burnAfterRead) {
+      memoryClips.delete(codeParam)
+      await deleteFromRedis(`clip:${codeParam}`)
+    }
+
+    return res.status(200).json({ success: true, clip })
+  }
+
+  // DELETE: Remove clip
+  if (req.method === 'DELETE') {
+    if (codeParam) {
+      memoryClips.delete(codeParam)
+      await deleteFromRedis(`clip:${codeParam}`)
+    }
+    return res.status(200).json({ success: true })
+  }
+
+  return res.status(405).json({ error: 'Method not allowed' })
+}
