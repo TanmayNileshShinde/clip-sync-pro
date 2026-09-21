@@ -21,6 +21,7 @@ import type { ClipItem, ClipAttachment } from '../types/clipboard'
 import { decryptPayload, isEncryptedPayload } from '../utils/crypto'
 import { playCopySound, playClickSound, playSuccessSound, playErrorSound } from '../utils/sound'
 import { retrieveClip } from '../services/clipStore'
+import { isHeicFormat, convertHeicToJpegDataUrl } from '../utils/imageOptimizer'
 import { ImageLightboxModal } from './ImageLightboxModal'
 
 interface RetrieveCardProps {
@@ -58,6 +59,34 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
 
+  // Helper to dynamically convert any received HEIC attachments to JPEG so they preview on all browsers
+  const normalizeAttachments = useCallback(async (items: ClipAttachment[]) => {
+    const hasHeic = items.some((item) => isHeicFormat(item.name, item.mimeType, item.content))
+    if (!hasHeic) return items
+
+    const updated = await Promise.all(
+      items.map(async (item) => {
+        if (isHeicFormat(item.name, item.mimeType, item.content)) {
+          try {
+            const jpegDataUrl = await convertHeicToJpegDataUrl(item.content)
+            const baseName = item.name.replace(/\.[^/.]+$/, '')
+            return {
+              ...item,
+              name: `${baseName || 'photo'}.jpg`,
+              content: jpegDataUrl,
+              mimeType: 'image/jpeg',
+            }
+          } catch (err) {
+            console.warn('Failed to convert HEIC preview:', err)
+            return item
+          }
+        }
+        return item
+      })
+    )
+    return updated
+  }, [])
+
   // Function to perform retrieval with code string
   const executeRetrieve = useCallback(async (code: string) => {
     if (code.length !== 6 || isNaN(Number(code))) {
@@ -90,6 +119,9 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
           ? [clip.attachment]
           : []
         setRetrievedAttachments(list)
+        normalizeAttachments(list).then((normalized) => {
+          setRetrievedAttachments(normalized)
+        })
         playSuccessSound()
       }
     } catch (err: unknown) {
@@ -168,21 +200,29 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
       // Check if decrypted payload is structured JSON (text + attachments)
       try {
         const parsed = JSON.parse(plaintext)
+        let list: ClipAttachment[] = []
         if (parsed && (typeof parsed.text === 'string' || parsed.attachments || parsed.attachment)) {
           setRetrievedText(parsed.text || '')
-          const list: ClipAttachment[] = parsed.attachments && parsed.attachments.length > 0
+          list = parsed.attachments && parsed.attachments.length > 0
             ? parsed.attachments
             : parsed.attachment
             ? [parsed.attachment]
             : []
-          setRetrievedAttachments(list)
         } else {
           setRetrievedText(plaintext)
-          setRetrievedAttachments(retrievedClip.attachments || (retrievedClip.attachment ? [retrievedClip.attachment] : []))
+          list = retrievedClip.attachments || (retrievedClip.attachment ? [retrievedClip.attachment] : [])
         }
+        setRetrievedAttachments(list)
+        normalizeAttachments(list).then((normalized) => {
+          setRetrievedAttachments(normalized)
+        })
       } catch {
         setRetrievedText(plaintext)
-        setRetrievedAttachments(retrievedClip.attachments || (retrievedClip.attachment ? [retrievedClip.attachment] : []))
+        const fallbackList = retrievedClip.attachments || (retrievedClip.attachment ? [retrievedClip.attachment] : [])
+        setRetrievedAttachments(fallbackList)
+        normalizeAttachments(fallbackList).then((normalized) => {
+          setRetrievedAttachments(normalized)
+        })
       }
 
       setRequiresPassword(false)

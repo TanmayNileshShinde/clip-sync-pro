@@ -24,24 +24,59 @@ export function isImageFile(file: File): boolean {
 }
 
 /**
+ * Detects whether an attachment or file is in Apple HEIC/HEIF format.
+ */
+export function isHeicFormat(name?: string, mimeType?: string, content?: string): boolean {
+  const lowerName = (name || '').toLowerCase()
+  const lowerMime = (mimeType || '').toLowerCase()
+  if (lowerName.endsWith('.heic') || lowerName.endsWith('.heif')) return true
+  if (lowerMime === 'image/heic' || lowerMime === 'image/heif') return true
+  if (content && (content.startsWith('data:image/heic') || content.startsWith('data:image/heif'))) return true
+  return false
+}
+
+/**
  * Helper to read a file as a raw DataURL fallback.
  */
-function readFileAsDataUrl(file: File): Promise<string> {
+function readFileAsDataUrl(file: File | Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(reader.result as string)
-    reader.onerror = () => reject(new Error(`Failed to read file: ${file.name}`))
+    reader.onerror = () => reject(new Error('Failed to read file'))
     reader.readAsDataURL(file)
   })
 }
 
 /**
+ * Converts any HEIC/HEIF source (DataURL or Blob) into a universal JPEG DataURL.
+ */
+export async function convertHeicToJpegDataUrl(heicSource: string | Blob): Promise<string> {
+  let blob: Blob
+  if (typeof heicSource === 'string') {
+    const res = await fetch(heicSource)
+    blob = await res.blob()
+  } else {
+    blob = heicSource
+  }
+
+  const heic2anyModule = await import('heic2any')
+  const heic2any = heic2anyModule.default || heic2anyModule
+  const result = await heic2any({
+    blob,
+    toType: 'image/jpeg',
+    quality: COMPRESSION_QUALITY,
+  })
+  const jpegBlob = Array.isArray(result) ? result[0] : result
+  return readFileAsDataUrl(jpegBlob)
+}
+
+/**
  * Optimizes an image file for fast cross-device clipboard transfer:
- * 1. Resizes large camera photos (up to 48MP) down to max 1920px on the longest edge.
- * 2. Draws to canvas and compresses to clean, high-quality JPEG (0.82 quality).
- * 3. Converts iOS HEIC photos into universally compatible JPEGs.
+ * 1. Automatically converts Apple iOS HEIC/HEIF images into standard JPEGs so they preview on all browsers.
+ * 2. Resizes large camera photos (up to 48MP) down to max 1920px on the longest edge.
+ * 3. Compresses to clean, high-quality JPEG (0.82 quality) using HTML5 Canvas.
  * 4. Preserves SVGs and small animated GIFs as-is.
- * 5. Reduces a typical 10MB phone photo to ~300KB - 500KB (97% reduction) in ~100ms.
+ * 5. Reduces typical 10MB phone photos to ~300KB - 500KB (97% reduction) in ~100ms.
  */
 export async function optimizeImageAttachment(file: File): Promise<ClipAttachment> {
   const lowerName = file.name.toLowerCase()
@@ -60,9 +95,32 @@ export async function optimizeImageAttachment(file: File): Promise<ClipAttachmen
     }
   }
 
-  // Attempt client-side canvas resize & compression
+  let workingFile = file
+
+  // 1. Convert HEIC/HEIF (iOS photos) into standard JPEG Blob first
+  if (isHeicFormat(file.name, file.type)) {
+    try {
+      const heic2anyModule = await import('heic2any')
+      const heic2any = heic2anyModule.default || heic2anyModule
+      const conversionResult = await heic2any({
+        blob: file,
+        toType: 'image/jpeg',
+        quality: COMPRESSION_QUALITY,
+      })
+      const convertedBlob = Array.isArray(conversionResult) ? conversionResult[0] : conversionResult
+      const baseName = file.name.replace(/\.[^/.]+$/, '')
+      workingFile = new File([convertedBlob], `${baseName || 'photo'}.jpg`, {
+        type: 'image/jpeg',
+      })
+    } catch (err) {
+      console.warn('HEIC to JPEG conversion warning:', err)
+      // Continue with workingFile, will fallback if canvas fails
+    }
+  }
+
+  // 2. Client-side canvas resize & compression
   try {
-    const objectUrl = URL.createObjectURL(file)
+    const objectUrl = URL.createObjectURL(workingFile)
     const img = new Image()
 
     await new Promise<void>((resolve, reject) => {
@@ -108,7 +166,7 @@ export async function optimizeImageAttachment(file: File): Promise<ClipAttachmen
     const approxBytes = Math.round((base64Length * 3) / 4)
 
     // Normalize filename to .jpg
-    const baseName = file.name.replace(/\.[^/.]+$/, '')
+    const baseName = workingFile.name.replace(/\.[^/.]+$/, '')
     const safeName = `${baseName || 'photo'}.jpg`
 
     return {
@@ -120,13 +178,15 @@ export async function optimizeImageAttachment(file: File): Promise<ClipAttachmen
     }
   } catch {
     // Fallback to direct DataURL if canvas processing fails
-    const fallbackDataUrl = await readFileAsDataUrl(file)
+    const fallbackDataUrl = await readFileAsDataUrl(workingFile)
+    const baseName = workingFile.name.replace(/\.[^/.]+$/, '')
     return {
       id: `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-      name: file.name,
+      name: workingFile.type === 'image/jpeg' ? `${baseName}.jpg` : workingFile.name,
       content: fallbackDataUrl,
-      size: file.size,
-      mimeType: file.type || 'image/jpeg',
+      size: workingFile.size,
+      mimeType: workingFile.type || 'image/jpeg',
     }
   }
 }
+
