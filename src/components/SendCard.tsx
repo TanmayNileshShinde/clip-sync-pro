@@ -22,6 +22,7 @@ import type { ClipItem, ClipType, ClipAttachment } from '../types/clipboard'
 import { encryptPayload } from '../utils/crypto'
 import { playClickSound, playSuccessSound, playErrorSound } from '../utils/sound'
 import { generateRandomCode, sendClip } from '../services/clipStore'
+import { isImageFile, optimizeImageAttachment } from '../utils/imageOptimizer'
 import { ImageLightboxModal } from './ImageLightboxModal'
 
 interface SendCardProps {
@@ -40,6 +41,7 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
   const [expiryHours, setExpiryHours] = useState<number>(24) // 24 hours default
 
   const [isLoading, setIsLoading] = useState(false)
+  const [isProcessingFiles, setIsProcessingFiles] = useState(false)
   const [feedbackMessage, setFeedbackMessage] = useState<{
     type: 'success' | 'error' | 'info'
     text: string
@@ -58,46 +60,66 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
     }, 4000)
   }
 
-  // Process a single or multiple Files
-  const processFiles = useCallback((files: FileList | File[]) => {
-    let totalAdded = 0
+  // Process single or multiple Files (with auto-compression for mobile & camera photos)
+  const processFiles = useCallback(async (files: FileList | File[]) => {
+    const fileArray = Array.from(files)
+    if (fileArray.length === 0) return
 
-    Array.from(files).forEach((file) => {
-      if (file.size > 25 * 1024 * 1024) {
-        showFeedback(`"${file.name}" exceeds 25MB limit. Skipped.`, 'error')
-        return
-      }
+    setIsProcessingFiles(true)
+    const newItems: ClipAttachment[] = []
+    let skippedCount = 0
 
-      const isImg = file.type.startsWith('image/')
-      const reader = new FileReader()
-
-      reader.onload = () => {
-        const result = reader.result as string
-        const item: ClipAttachment = {
-          id: `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-          content: result,
-          name: file.name,
-          size: file.size,
-          mimeType: file.type || (isImg ? 'image/png' : 'application/octet-stream'),
+    for (const file of fileArray) {
+      if (isImageFile(file)) {
+        try {
+          const optimized = await optimizeImageAttachment(file)
+          newItems.push(optimized)
+        } catch {
+          showFeedback(`Could not process photo "${file.name}"`, 'error')
+          skippedCount++
+        }
+      } else {
+        // Non-image file: check maximum 3.5MB cloud limit
+        if (file.size > 3.5 * 1024 * 1024) {
+          showFeedback(
+            `"${file.name}" (${(file.size / (1024 * 1024)).toFixed(1)}MB) exceeds the 3.5MB cloud limit. Skipped.`,
+            'error'
+          )
+          skippedCount++
+          continue
         }
 
-        setAttachments((prev) => [...prev, item])
-        totalAdded++
-      }
+        try {
+          const dataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = () => resolve(reader.result as string)
+            reader.onerror = () => reject(new Error('Failed to read file'))
+            reader.readAsDataURL(file)
+          })
 
-      reader.onerror = () => {
-        showFeedback(`Failed to read "${file.name}"`, 'error')
+          newItems.push({
+            id: `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+            content: dataUrl,
+            name: file.name,
+            size: file.size,
+            mimeType: file.type || 'application/octet-stream',
+          })
+        } catch {
+          showFeedback(`Failed to read "${file.name}"`, 'error')
+          skippedCount++
+        }
       }
+    }
 
-      reader.readAsDataURL(file)
-    })
+    if (newItems.length > 0) {
+      setAttachments((prev) => [...prev, ...newItems])
+      playSuccessSound()
+      showFeedback(`Attached & optimized ${newItems.length} item${newItems.length > 1 ? 's' : ''}!`, 'success')
+    } else if (skippedCount > 0) {
+      playErrorSound()
+    }
 
-    setTimeout(() => {
-      if (totalAdded > 0) {
-        playSuccessSound()
-        showFeedback(`Attached ${totalAdded} item${totalAdded > 1 ? 's' : ''}!`, 'success')
-      }
-    }, 200)
+    setIsProcessingFiles(false)
   }, [])
 
   // Listen for global Ctrl+V paste (allows pasting multiple screenshots/images anytime!)
@@ -217,6 +239,13 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
     if (isEncrypted && !password.trim()) {
       playErrorSound()
       showFeedback('Please enter a password or PIN to encrypt this clip.', 'error')
+      return
+    }
+
+    const totalBytes = attachments.reduce((acc, curr) => acc + (curr.size || 0), 0)
+    if (totalBytes > 4.2 * 1024 * 1024) {
+      playErrorSound()
+      showFeedback('Total attachments exceed 4.2MB cloud transfer limit. Please remove an attachment.', 'error')
       return
     }
 
@@ -392,6 +421,9 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
           accept="image/*"
           multiple
           style={{ display: 'none' }}
+          onClick={(e) => {
+            ;(e.target as HTMLInputElement).value = ''
+          }}
           onChange={(e) => {
             if (e.target.files && e.target.files.length > 0) {
               processFiles(e.target.files)
@@ -403,6 +435,9 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
           ref={fileInputRef}
           multiple
           style={{ display: 'none' }}
+          onClick={(e) => {
+            ;(e.target as HTMLInputElement).value = ''
+          }}
           onChange={(e) => {
             if (e.target.files && e.target.files.length > 0) {
               processFiles(e.target.files)
@@ -661,10 +696,15 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
         <button
           type="button"
           className="btn-primary-send"
-          disabled={isLoading}
+          disabled={isLoading || isProcessingFiles}
           onClick={handleSend}
         >
-          {isLoading ? (
+          {isProcessingFiles ? (
+            <>
+              <span className="btn-spinner"></span>
+              <span>Optimizing & Attaching Photo(s)...</span>
+            </>
+          ) : isLoading ? (
             <>
               <span className="btn-spinner"></span>
               <span>Processing & Generating Code...</span>

@@ -57,16 +57,23 @@ function clipApiPlugin(): Plugin {
           return
         }
 
-        const url = req.url || ''
+        const rawUrl = req.url || ''
+        const url = rawUrl.split('?')[0].replace(/\/+$/, '')
 
         // POST /api/clip
         if (req.method === 'POST' && url === '/api/clip') {
-          let body = ''
+          const chunks: Buffer[] = []
           req.on('data', (chunk) => {
-            body += chunk
+            chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk)
+          })
+          req.on('error', (err) => {
+            res.statusCode = 500
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ success: false, error: err.message }))
           })
           req.on('end', () => {
             try {
+              const body = Buffer.concat(chunks).toString('utf-8')
               const data = JSON.parse(body) as Partial<ClipPayload>
               let code = data.code?.trim() || ''
 
@@ -108,12 +115,26 @@ function clipApiPlugin(): Plugin {
           return
         }
 
-        // GET /api/clip/:code
-        if (req.method === 'GET' && url.startsWith('/api/clip/')) {
-          const code = url.replace('/api/clip/', '').split('?')[0].trim()
-          const clip = clips.get(code)
+        // GET /api/clip/:code or /api/clip?code=:code
+        if (req.method === 'GET' && (url.startsWith('/api/clip/') || url === '/api/clip')) {
+          let code = url.replace('/api/clip/', '').replace('/api/clip', '').trim()
+          if (!code && req.url) {
+            try {
+              const parsed = new URL(req.url, 'http://localhost')
+              code = parsed.searchParams.get('code')?.trim() || ''
+            } catch {
+              // Ignore
+            }
+          }
 
           res.setHeader('Content-Type', 'application/json')
+          if (!code || code.length !== 6) {
+            res.statusCode = 400
+            res.end(JSON.stringify({ success: false, error: 'Please provide a 6-digit code' }))
+            return
+          }
+
+          const clip = clips.get(code)
           if (!clip) {
             res.statusCode = 404
             res.end(JSON.stringify({ success: false, error: 'Clip not found or expired' }))
@@ -138,9 +159,17 @@ function clipApiPlugin(): Plugin {
         }
 
         // DELETE /api/clip/:code
-        if (req.method === 'DELETE' && url.startsWith('/api/clip/')) {
-          const code = url.replace('/api/clip/', '').split('?')[0].trim()
-          const existed = clips.delete(code)
+        if (req.method === 'DELETE' && (url.startsWith('/api/clip/') || url === '/api/clip')) {
+          let code = url.replace('/api/clip/', '').replace('/api/clip', '').trim()
+          if (!code && req.url) {
+            try {
+              const parsed = new URL(req.url, 'http://localhost')
+              code = parsed.searchParams.get('code')?.trim() || ''
+            } catch {
+              // Ignore
+            }
+          }
+          const existed = code ? clips.delete(code) : false
           res.setHeader('Content-Type', 'application/json')
           res.statusCode = 200
           res.end(JSON.stringify({ success: true, deleted: existed }))

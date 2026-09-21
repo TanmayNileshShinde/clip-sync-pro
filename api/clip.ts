@@ -1,5 +1,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '4.5mb',
+    },
+  },
+}
+
 interface ClipPayload {
   code: string
   type: 'text' | 'code' | 'image' | 'file' | 'mixed'
@@ -43,9 +51,18 @@ async function saveToRedis(key: string, value: ClipPayload, ttlSeconds: number) 
   if (!redisUrl || !redisToken) return
   try {
     const serialized = JSON.stringify(value)
-    await fetch(`${redisUrl}/set/${key}/${encodeURIComponent(serialized)}?ex=${ttlSeconds}`, {
-      headers: { Authorization: `Bearer ${redisToken}` },
+    // Upstash REST API: POST /set/{key}?ex={seconds} with serialized string in body
+    const res = await fetch(`${redisUrl}/set/${encodeURIComponent(key)}?ex=${ttlSeconds}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${redisToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(serialized),
     })
+    if (!res.ok) {
+      console.error('Redis save non-ok status:', res.status, await res.text())
+    }
   } catch (err) {
     console.error('Redis save error:', err)
   }
@@ -54,13 +71,17 @@ async function saveToRedis(key: string, value: ClipPayload, ttlSeconds: number) 
 async function getFromRedis(key: string): Promise<ClipPayload | null> {
   if (!redisUrl || !redisToken) return null
   try {
-    const res = await fetch(`${redisUrl}/get/${key}`, {
+    const res = await fetch(`${redisUrl}/get/${encodeURIComponent(key)}`, {
       headers: { Authorization: `Bearer ${redisToken}` },
     })
     if (!res.ok) return null
-    const data = (await res.json()) as { result?: string }
+    const data = (await res.json()) as { result?: string | null }
     if (!data.result) return null
-    return JSON.parse(data.result) as ClipPayload
+    try {
+      return JSON.parse(data.result) as ClipPayload
+    } catch {
+      return data.result as unknown as ClipPayload
+    }
   } catch (err) {
     console.error('Redis get error:', err)
     return null
@@ -70,7 +91,7 @@ async function getFromRedis(key: string): Promise<ClipPayload | null> {
 async function deleteFromRedis(key: string) {
   if (!redisUrl || !redisToken) return
   try {
-    await fetch(`${redisUrl}/del/${key}`, {
+    await fetch(`${redisUrl}/del/${encodeURIComponent(key)}`, {
       headers: { Authorization: `Bearer ${redisToken}` },
     })
   } catch {
@@ -131,7 +152,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // Extract code from query or URL
-  const codeParam = (req.query.code as string) || req.url?.split('?')[0].replace('/api/clip/', '').replace('/api/clip', '').trim()
+  let codeParam = (req.query.code as string)?.trim() || ''
+  if (!codeParam && req.url) {
+    const pathPart = req.url.split('?')[0].replace('/api/clip/', '').replace('/api/clip', '').trim()
+    if (pathPart.length === 6) {
+      codeParam = pathPart
+    }
+  }
 
   // GET: Retrieve clip by code
   if (req.method === 'GET') {

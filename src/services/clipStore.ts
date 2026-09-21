@@ -32,7 +32,10 @@ function getLocalClips(): Record<string, ClipItem> {
 function saveLocalClip(clip: ClipItem) {
   if (typeof localStorage === 'undefined') return
   // Don't save large binary/image payloads to localStorage (they live on the server & in memory)
-  if (clip.content.length > MAX_LOCAL_STORAGE_BYTES) return
+  const totalAttachmentBytes =
+    (clip.attachments?.reduce((acc, a) => acc + (a.content?.length || a.size || 0), 0) || 0) +
+    (clip.attachment?.content?.length || clip.attachment?.size || 0)
+  if ((clip.content?.length || 0) + totalAttachmentBytes > MAX_LOCAL_STORAGE_BYTES) return
 
   try {
     const clips = getLocalClips()
@@ -185,8 +188,9 @@ function setupPeerHost(clip: ClipItem) {
 
     hostPeer.on('connection', (conn) => {
       conn.on('open', () => {
-        // WebRTC DataChannels fail if message exceeds ~256KB
-        if (clip.content.length < 200 * 1024) {
+        // WebRTC DataChannels fail if message exceeds ~256KB; check total serialized size
+        const totalSize = JSON.stringify(clip).length
+        if (totalSize < 64 * 1024) {
           try {
             conn.send({ type: 'CLIP_PAYLOAD', clip })
           } catch {
@@ -283,27 +287,45 @@ export async function sendClip(clipData: Omit<ClipItem, 'createdAt'>): Promise<C
     }
   }
 
-  // 3. Setup WebRTC P2P Host if content fits in data channel
-  if (fullClip.content.length < 200 * 1024) {
+  // 3. Setup WebRTC P2P Host if total content safely fits in data channel
+  const totalClipSize = JSON.stringify(fullClip).length
+  if (totalClipSize < 64 * 1024) {
     setupPeerHost(fullClip)
   }
 
-  // 4. Send to Vite / API server (handles large binary/image payloads smoothly)
+  // 4. Send to Vite / API server (handles binary/image payloads smoothly)
   try {
     const res = await fetch('/api/clip', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(fullClip),
     })
+
     if (res.ok) {
       const data = await res.json()
       if (data.success && data.clip) {
         addClipHistory(data.clip, 'sent')
         return data.clip
       }
+    } else {
+      let errMsg = 'Failed to upload clip to server'
+      try {
+        const errJson = await res.json()
+        if (errJson.error) errMsg = errJson.error
+      } catch {
+        if (res.status === 413) {
+          errMsg = 'Payload too large for cloud server (limit 4.5MB). Please attach smaller photos or files.'
+        } else {
+          errMsg = `Server error (HTTP ${res.status}): ${res.statusText || 'Upload failed'}`
+        }
+      }
+      throw new Error(errMsg)
     }
-  } catch {
-    // API server error fallback
+  } catch (err: unknown) {
+    if (err instanceof Error && err.message) {
+      throw err
+    }
+    throw new Error('Could not connect to clipboard server. Please check your network connection.')
   }
 
   // Record history safely and return
