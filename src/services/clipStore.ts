@@ -340,44 +340,68 @@ export async function retrieveClip(code: string): Promise<ClipItem> {
     throw new Error('Please enter a valid 6-digit code')
   }
 
-  // 1. Try local server API first (handles both small and multi-megabyte payloads)
-  try {
-    const res = await fetch(`/api/clip/${cleanCode}`)
-    if (res.ok) {
-      const data = await res.json()
-      if (data.success && data.clip) {
-        addClipHistory(data.clip, 'received')
-        return data.clip
-      }
-    }
-  } catch {
-    // Fall through to peer or local store
-  }
-
-  // 2. Try WebRTC P2P direct data channel
-  try {
-    const p2pClip = await fetchViaPeer(cleanCode, 2000)
-    if (p2pClip) {
-      addClipHistory(p2pClip, 'received')
-      return p2pClip
-    }
-  } catch {
-    // Fall through
-  }
-
-  // 3. Try LocalStorage fallback
+  // 1. Check LocalStorage cache first (sub-millisecond instant retrieval for local & history clips)
   const localClips = getLocalClips()
   const localClip = localClips[cleanCode]
   if (localClip) {
     if (localClip.expiresAt > 0 && localClip.expiresAt < Date.now()) {
       removeLocalClip(cleanCode)
-      throw new Error('This clip has expired')
+    } else {
+      return localClip
     }
-    if (localClip.burnAfterRead) {
-      removeLocalClip(cleanCode)
+  }
+
+  // 2. Check History Cache (ensures clicking any item from History always opens smoothly)
+  const history = getClipHistory()
+  const historyItem = history.find((h) => h.code === cleanCode)
+  if (historyItem) {
+    if (historyItem.clipData && (!historyItem.clipData.expiresAt || historyItem.clipData.expiresAt > Date.now())) {
+      return historyItem.clipData
     }
-    addClipHistory(localClip, 'received')
-    return localClip
+    // Reconstruct clip from history metadata if full clipData was trimmed for storage quota
+    if (historyItem.preview || historyItem.name) {
+      const reconstructed: ClipItem = {
+        code: historyItem.code,
+        type: historyItem.type,
+        content: historyItem.clipData?.content || historyItem.preview || '',
+        name: historyItem.name,
+        size: historyItem.size,
+        createdAt: historyItem.timestamp,
+        expiresAt: 0,
+        burnAfterRead: false,
+        isEncrypted: false,
+        attachment: historyItem.clipData?.attachment,
+        attachments: historyItem.clipData?.attachments,
+      }
+      return reconstructed
+    }
+  }
+
+  // 3. Try Server API (cloud synced clips from other devices)
+  try {
+    const res = await fetch(`/api/clip/${cleanCode}`)
+    if (res.ok) {
+      const data = await res.json()
+      if (data.success && data.clip) {
+        saveLocalClip(data.clip)
+        addClipHistory(data.clip, 'received')
+        return data.clip
+      }
+    }
+  } catch {
+    // Fall through to peer
+  }
+
+  // 4. Try WebRTC P2P direct data channel
+  try {
+    const p2pClip = await fetchViaPeer(cleanCode, 1500)
+    if (p2pClip) {
+      saveLocalClip(p2pClip)
+      addClipHistory(p2pClip, 'received')
+      return p2pClip
+    }
+  } catch {
+    // Fall through
   }
 
   throw new Error('No active clip found for code: ' + cleanCode)

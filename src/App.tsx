@@ -53,6 +53,7 @@ export function App() {
     }
     return ''
   })
+  const [retrieveKey, setRetrieveKey] = useState<number>(0)
 
   // Toast notification
   const [toastMessage, setToastMessage] = useState<string | null>(null)
@@ -107,7 +108,12 @@ export function App() {
   // Handle selecting a code from History or Success Modal
   const handleSelectCode = (code: string) => {
     setRetrieveCode(code)
+    setRetrieveKey((k) => k + 1)
     setActiveTab('retrieve')
+    showToast(`Loading clip #${code}...`)
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('clipsync:load-code', { detail: code }))
+    }, 50)
   }
 
   // Send content from DevTools directly into editor
@@ -186,7 +192,7 @@ export function App() {
         {activeTab === 'send' ? (
           <SendCard onClipCreated={handleClipCreated} />
         ) : (
-          <RetrieveCard key={retrieveCode} initialCode={retrieveCode} />
+          <RetrieveCard key={`${retrieveCode}_${retrieveKey}`} initialCode={retrieveCode} />
         )}
       </main>
 

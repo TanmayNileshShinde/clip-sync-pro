@@ -2544,6 +2544,20 @@ a:hover {
   font-weight: 700;
   font-size: 0.8rem;
   color: var(--accent-primary);
+  background: var(--accent-light);
+  border: 1px solid var(--accent-border);
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.history-code-badge:hover {
+  background: var(--accent-primary);
+  color: var(--accent-contrast);
+  border-color: var(--accent-primary);
 }
 
 .history-time {

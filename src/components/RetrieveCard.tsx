@@ -132,7 +132,7 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
     }
   }, [])
 
-  // Auto-fetch if initialCode provided
+  // Auto-fetch if digits complete
   useEffect(() => {
     const code = digits.join('')
     if (code.length === 6 && !digits.includes('')) {
@@ -142,6 +142,29 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
       return () => clearTimeout(timer)
     }
   }, [digits, executeRetrieve])
+
+  // Auto-fill and execute immediately whenever initialCode prop changes
+  useEffect(() => {
+    const clean = initialCode.trim()
+    if (clean.length === 6 && !isNaN(Number(clean))) {
+      setDigits(clean.split(''))
+      executeRetrieve(clean)
+    }
+  }, [initialCode, executeRetrieve])
+
+  // Global event listener for loading code dynamically from History
+  useEffect(() => {
+    const handleLoadCode = (e: Event) => {
+      const customEvent = e as CustomEvent<string>
+      const clean = customEvent.detail?.trim()
+      if (clean && clean.length === 6 && !isNaN(Number(clean))) {
+        setDigits(clean.split(''))
+        executeRetrieve(clean)
+      }
+    }
+    window.addEventListener('clipsync:load-code', handleLoadCode)
+    return () => window.removeEventListener('clipsync:load-code', handleLoadCode)
+  }, [executeRetrieve])
 
   // Handle Digit Change
   const handleDigitChange = (index: number, val: string) => {

@@ -185,10 +185,11 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
                 key={item.id}
                 className="history-row"
                 onClick={() => {
+                  playClickSound()
                   onSelectCode(item.code)
                   onClose()
                 }}
-                title="Click to view or retrieve clip"
+                title="Click to view and retrieve clip"
               >
                 {/* Direction and Type Icon */}
                 <div className={`history-type-badge ${item.direction}`}>
@@ -213,7 +214,26 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
                 {/* Content info */}
                 <div className="history-info">
                   <div className="history-top-line">
-                    <span className="history-code-badge">#{item.code}</span>
+                    <button
+                      type="button"
+                      className="history-code-badge"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        try {
+                          navigator.clipboard.writeText(item.code)
+                        } catch {
+                          // Ignore
+                        }
+                        playCopySound()
+                        setCopiedId(`code_${item.id}`)
+                        setTimeout(() => setCopiedId(null), 1200)
+                        onSelectCode(item.code)
+                        onClose()
+                      }}
+                      title="Click to retrieve clip & copy PIN"
+                    >
+                      {copiedId === `code_${item.id}` ? `✓ #${item.code}` : `#${item.code}`}
+                    </button>
                     <span className="history-time">{formatTime(item.timestamp)}</span>
                   </div>
                   <p className="history-preview-text">
