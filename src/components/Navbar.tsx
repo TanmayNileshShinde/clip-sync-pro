@@ -89,8 +89,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               playClickSound()
               onOpenTools()
             }}
-            title="PDF & Document Converters (PDF to Word, Word to PDF, Image to PDF...)"
-            aria-label="PDF & Document Converters"
+            title="PDF Tools (Image to PDF, Merge PDF, Text to PDF...)"
+            aria-label="PDF Tools"
           >
             <FileText size={18} />
             <span className="action-label">PDF Tools</span>

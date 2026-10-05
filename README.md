@@ -10,7 +10,7 @@
 - **6-Digit PIN & Live QR Code**: Instant mobile pairing by scanning the on-screen QR code with any smartphone camera or typing the 6-digit code.
 - **Client-Side AES-GCM 256 Encryption**: Optional password/PIN protection computed directly in your browser with the native Web Crypto API before transfer.
 - **Configurable Lifespan & Self-Destruct**: Burn-after-reading (destructs on 1st retrieval), 5 minutes, 1 hour, 24 hours, or 7 days.
-- **Integrated Document & PDF Suite**: Built-in PDF to Word, Word to PDF, Image to PDF, Merge PDF, and Text to PDF converters with instant download & 1-click sharing to ClipSync.
+- **Integrated PDF Suite**: Built-in Image to PDF, Merge PDF, and Text to PDF tools with instant download & 1-click sharing to ClipSync.
 - **Clip History Drawer**: Searchable history of sent and received clips with 1-click re-copying and star favorites.
 - **Fast & Ethical**: Sub-50ms instant generation, zero ads, zero CPU-mining loops.
 - **Sleek Gray & Yellow Aesthetic**: High-contrast modern industrial design with matte slate/charcoal tones, vibrant yellow accents, and seamless Dark/Light mode switching.
