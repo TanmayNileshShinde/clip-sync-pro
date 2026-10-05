@@ -2,7 +2,7 @@ import React from 'react'
 import {
   Clipboard,
   History,
-  Wrench,
+  FileText,
   Moon,
   Sun,
   Volume2,
@@ -81,19 +81,19 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="status-text">Live Sync</span>
           </div>
 
-          {/* Dev Tools Button */}
+          {/* PDF & Document Tools Button */}
           <button
             type="button"
-            className="icon-action-btn"
+            className="icon-action-btn pdf-tools-btn"
             onClick={() => {
               playClickSound()
               onOpenTools()
             }}
-            title="Developer & Text Tools"
-            aria-label="Developer & Text Tools"
+            title="PDF & Document Converters (PDF to Word, Word to PDF, Image to PDF...)"
+            aria-label="PDF & Document Converters"
           >
-            <Wrench size={18} />
-            <span className="action-label">Tools</span>
+            <FileText size={18} />
+            <span className="action-label">PDF Tools</span>
           </button>
 
           {/* History Button */}

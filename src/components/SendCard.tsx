@@ -151,6 +151,30 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
     return () => window.removeEventListener('paste', handleGlobalPaste)
   }, [processFiles])
 
+  // Listen for DocTools / external events to attach files or set text
+  useEffect(() => {
+    const handleAttachFileEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<File>
+      if (customEvent.detail) {
+        processFiles([customEvent.detail])
+      }
+    }
+    const handleSetTextEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<string>
+      if (typeof customEvent.detail === 'string') {
+        setTextContent(customEvent.detail)
+        setClipType('text')
+      }
+    }
+
+    window.addEventListener('clipsync:attach-file', handleAttachFileEvent)
+    window.addEventListener('clipsync:set-text', handleSetTextEvent)
+    return () => {
+      window.removeEventListener('clipsync:attach-file', handleAttachFileEvent)
+      window.removeEventListener('clipsync:set-text', handleSetTextEvent)
+    }
+  }, [processFiles])
+
   // Read System Clipboard via Button
   const handleReadClipboard = async () => {
     playClickSound()

@@ -42,7 +42,7 @@ export const SendSuccessModal: React.FC<SendSuccessModalProps> = ({
           particleCount: 50,
           spread: 60,
           origin: { y: 0.7 },
-          colors: ['#6366f1', '#8b5cf6', '#ec4899', '#10b981'],
+          colors: ['#facc15', '#eab308', '#ca8a04', '#71717a', '#ffffff'],
         })
       } catch {
         // Ignore
@@ -57,7 +57,7 @@ export const SendSuccessModal: React.FC<SendSuccessModalProps> = ({
         width: 180,
         margin: 2,
         color: {
-          dark: '#0f172a',
+          dark: '#18181b',
           light: '#ffffff',
         },
       }).catch(() => {

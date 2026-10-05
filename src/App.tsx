@@ -4,7 +4,7 @@ import { SendCard } from './components/SendCard'
 import { RetrieveCard } from './components/RetrieveCard'
 import { SendSuccessModal } from './components/SendSuccessModal'
 import { HistoryDrawer } from './components/HistoryDrawer'
-import { DevToolsModal } from './components/DevToolsModal'
+import { DocToolsModal } from './components/DocToolsModal'
 import { Footer } from './components/Footer'
 import type { ClipItem, HistoryItem } from './types/clipboard'
 import { getClipHistory, subscribeToCrossTabClips } from './services/clipStore'
@@ -124,7 +124,14 @@ export function App() {
         textarea.focus()
       }
     }, 100)
-    showToast('Sent output from DevTools to clip editor!')
+    showToast('Sent document content to clip editor!')
+  }
+
+  // Send converted file directly into editor
+  const handleSendFileFromTools = (file: File) => {
+    setActiveTab('send')
+    window.dispatchEvent(new CustomEvent('clipsync:attach-file', { detail: file }))
+    showToast(`Attached "${file.name}" to Send card!`)
   }
 
   return (
@@ -202,11 +209,12 @@ export function App() {
         onSelectCode={handleSelectCode}
       />
 
-      {/* Dev & Text Tools Modal */}
-      <DevToolsModal
+      {/* Document & PDF Tools Modal */}
+      <DocToolsModal
         isOpen={isToolsOpen}
         onClose={() => setIsToolsOpen(false)}
-        onSendToClipboard={handleSendFromTools}
+        onSendTextToClipboard={handleSendFromTools}
+        onSendFileToClipboard={handleSendFileFromTools}
       />
 
       {/* Global Toast Notification */}
