@@ -16,6 +16,7 @@ import {
   Paperclip,
   ZoomIn,
   FileText,
+  ClipboardPaste,
 } from 'lucide-react'
 import type { ClipItem, ClipAttachment } from '../types/clipboard'
 import { decryptPayload, isEncryptedPayload } from '../utils/crypto'
@@ -130,7 +131,7 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [normalizeAttachments])
 
   // Auto-fetch if digits complete
   useEffect(() => {
@@ -147,8 +148,11 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
   useEffect(() => {
     const clean = initialCode.trim()
     if (clean.length === 6 && !isNaN(Number(clean))) {
-      setDigits(clean.split(''))
-      executeRetrieve(clean)
+      const timer = setTimeout(() => {
+        setDigits(clean.split(''))
+        executeRetrieve(clean)
+      }, 0)
+      return () => clearTimeout(timer)
     }
   }, [initialCode, executeRetrieve])
 
@@ -204,6 +208,32 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
   const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Backspace' && !digits[index] && index > 0) {
       inputRefs.current[index - 1]?.focus()
+    }
+  }
+
+  // Paste 6-digit code directly from clipboard
+  const handlePasteCode = async () => {
+    playClickSound()
+    try {
+      if (navigator.clipboard?.readText) {
+        const text = await navigator.clipboard.readText()
+        const cleaned = text.replace(/\D/g, '').slice(0, 6)
+        if (cleaned.length > 0) {
+          const newDigits = ['', '', '', '', '', '']
+          for (let i = 0; i < 6; i++) {
+            newDigits[i] = cleaned[i] || ''
+          }
+          setDigits(newDigits)
+          if (cleaned.length === 6) {
+            executeRetrieve(cleaned)
+          } else {
+            inputRefs.current[cleaned.length]?.focus()
+          }
+          playSuccessSound()
+        }
+      }
+    } catch {
+      // Clipboard read access denied or unsupported
     }
   }
 
@@ -398,6 +428,15 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
                 <span>Retrieve Clip</span>
               </>
             )}
+          </button>
+
+          <button
+            type="button"
+            className="btn-retrieve-clear"
+            onClick={handlePasteCode}
+            title="Paste 6-digit code from clipboard"
+          >
+            <ClipboardPaste size={14} /> Paste Code
           </button>
 
           {(digits.some((d) => d !== '') || retrievedClip) && (

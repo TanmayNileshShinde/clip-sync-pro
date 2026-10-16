@@ -1,91 +1,167 @@
-# ClipSync PRO — Universal Cross-Device Clipboard & File Transfer
+# ClipSync PRO 🚀
 
-**ClipSync Pro** is a modern, high-performance, and end-to-end encrypted shared clipboard web application designed for fast transfers between laptops, phones, and tablets.
+> High-performance, zero-friction universal cross-device clipboard & file transfer with client-side AES-GCM 256-bit encryption.
 
----
-
-## 🚀 Key Features
-
-- **Text & Images/Files Together**: Attach screenshots, photos, or documents alongside your text notes in a single 6-digit clip.
-- **6-Digit PIN & Live QR Code**: Instant mobile pairing by scanning the on-screen QR code with any smartphone camera or typing the 6-digit code.
-- **Client-Side AES-GCM 256 Encryption**: Optional password/PIN protection computed directly in your browser with the native Web Crypto API before transfer.
-- **Configurable Lifespan & Self-Destruct**: Burn-after-reading (destructs on 1st retrieval), 5 minutes, 1 hour, 24 hours, or 7 days.
-- **Integrated PDF Suite**: Built-in Image to PDF, Merge PDF, and Text to PDF tools with instant download & 1-click sharing to ClipSync.
-- **Clip History Drawer**: Searchable history of sent and received clips with 1-click re-copying and star favorites.
-- **Fast & Ethical**: Sub-50ms instant generation, zero ads, zero CPU-mining loops.
-- **Sleek Gray & Yellow Aesthetic**: High-contrast modern industrial design with matte slate/charcoal tones, vibrant yellow accents, and seamless Dark/Light mode switching.
+[![React](https://img.shields.io/badge/React-19-61dafb?style=flat-square&logo=react)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-8.x-646cff?style=flat-square&logo=vite)](https://vitejs.dev/)
+[![Vitest](https://img.shields.io/badge/Vitest-Tested-729B1B?style=flat-square&logo=vitest)](https://vitest.dev/)
+[![Security](https://img.shields.io/badge/Security-AES--GCM--256-green?style=flat-square&logo=shield)](https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
 ---
 
-## 🌐 Deploying Live to Vercel
+## 📖 Overview
 
-The project is pre-configured with `vercel.json` and a Serverless API (`api/clip.ts`). You can deploy it in 2 minutes using either method below:
+**ClipSync Pro** solves the everyday friction of moving text notes, code snippets, camera photos, and documents between phones, laptops, and tablets. It combines client-side zero-knowledge encryption with sub-50ms instant generation, live QR code scanning, and automated image transcoding.
 
-### Option A: Using the Vercel CLI (Fastest — 1 command)
+No accounts, no tracking cookies, and zero setup required.
 
-1. Open your terminal in this project folder:
-   ```bash
-   npx vercel
-   ```
-2. Follow the prompts:
-   - Set up and deploy? **Y**
-   - Which scope? (Select your account)
-   - Link to existing project? **N**
-   - What's your project's name? `clipsync-pro` (or press Enter)
-   - In which directory is your code located? `./` (press Enter)
-   - Want to modify settings? **N**
-3. When ready for production:
-   ```bash
-   npx vercel --prod
-   ```
-Your app will be live at `https://clipsync-pro.vercel.app`!
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Sender as 📱 Sender (Phone/Laptop)
+    participant ClientCrypto as 🔒 Web Crypto (Browser)
+    participant Edge as ⚡ Vercel Edge Serverless / KV
+    actor Receiver as 💻 Receiver (Device)
 
----
-
-### Option B: Deploying via GitHub
-
-1. Initialize git and commit your files:
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit: ClipSync Pro"
-   ```
-2. Create a new repository on [GitHub](https://github.com/) and push your code:
-   ```bash
-   git remote add origin https://github.com/<your-username>/<your-repo-name>.git
-   git branch -M main
-   git push -u origin main
-   ```
-3. Go to [Vercel](https://vercel.com/new), click **"Import Project"**, and select your GitHub repository.
-4. Keep the default settings (Framework: Vite, Build Command: `npm run build`, Output Directory: `dist`) and click **Deploy**.
+    Sender->>ClientCrypto: Type note or drop files (Optional PIN)
+    Note over ClientCrypto: Derive AES-256 key via PBKDF2 (100k rounds)<br/>Encrypt payload with AES-GCM (12-byte IV)
+    ClientCrypto->>Edge: POST /api/clip (Encrypted ciphertext)
+    Edge-->>Sender: 6-Digit Retrieval Code & Live QR
+    Receiver->>Edge: GET /api/clip?code=123456
+    Edge-->>Receiver: Encrypted ciphertext (Burn on read if set)
+    Receiver->>ClientCrypto: Enter PIN to decrypt locally
+    ClientCrypto-->>Receiver: Render decrypted text & files
+```
 
 ---
 
-## ⚡ Long-Term Persistent Storage on Vercel (Optional)
+## ✨ Features
 
-ClipSync Pro works out of the box with in-memory serverless caching and WebRTC peer syncing.
+### 🔐 Zero-Knowledge Client-Side Encryption
+- **AES-GCM 256-bit** encryption performed directly in your browser using the native `crypto.subtle` API.
+- Keys derived using **PBKDF2** with 100,000 SHA-256 iterations and unique 16-byte cryptographic salts.
+- The server only ever stores encrypted ciphertext; passwords and encryption keys never leave your machine.
 
-If you want persistent cloud storage across all Vercel regions and cold starts:
-1. In your **Vercel Project Dashboard**, go to **Storage** tab.
-2. Click **Create Database** → Select **KV** (or **Upstash Redis**).
-3. Connect it to your project.
-4. Vercel automatically injects `KV_REST_API_URL` and `KV_REST_API_TOKEN`.
-5. ClipSync Pro will automatically detect it and enable Redis-backed cloud persistence!
+### 📸 Universal File & Photo Support
+- **Multi-Attachment Bundling**: Attach screenshots, PDFs, photos, or documents alongside your text notes in a single 6-digit clip.
+- **Automatic HEIC/HEIF Transcoding**: High-efficiency photos from iPhones are automatically transcoded to universal JPEG format on the fly.
+- **Global Clipboard Paste**: Press `Ctrl+V` anywhere on the screen to instantly ingest screenshots into your outgoing clip.
+
+### ⚡ Rapid Pairing & Sharing
+- **6-Digit PIN Pairing**: Clean numeric code for quick manual typing.
+- **Dynamic QR Code**: Scan with any smartphone camera to load the clip immediately.
+- **Save QR as PNG**: One-click download of the generated QR code image.
+- **Native Web Share**: Trigger your operating system's native share sheet with one tap.
+
+### 🛠️ Developer Utility Suite
+- **JSON Prettifier**: Detect and format JSON payloads with proper indentation.
+- **Base64 Encoder / Decoder**: Instantly encode plaintext or decode base64 strings.
+- **Whitespace Sanitizer**: Strip trailing whitespace and collapse redundant blank lines.
+- **Case Converter**: Toggle between UPPERCASE and lowercase with a single click.
+- **Clipboard Reader**: Pull content directly from your operating system clipboard into the editor.
+
+### ⏱️ Configurable Lifespan & Self-Destruct
+- **Burn After Read**: Permanently deletes the clip immediately after the first successful retrieval.
+- **Automated Expiry**: Configure clips to automatically expire in 5 minutes, 1 hour, 24 hours, or 7 days.
+- **Memory & Storage Caps**: Built-in 1,000-clip FIFO pruning to prevent memory exhaustion on serverless cold starts.
 
 ---
 
-## 💻 Running Locally
+## 🏗️ Architecture & Security
+
+| Layer | Technology | Details |
+|---|---|---|
+| **Frontend** | React 19, TypeScript, Vite | Zero runtime bloat, fast HMR |
+| **Cryptography** | Web Crypto API (`SubtleCrypto`) | AES-GCM (256-bit), PBKDF2 (100k iterations, SHA-256) |
+| **Transcoding** | Client-Side Canvas & HEIC Worker | In-memory canvas rendering, zero cloud compute cost |
+| **Backend API** | Vercel Serverless Function (`api/clip.ts`) | Edge-ready Node runtime with security response headers |
+| **Persistence** | Vercel KV / Upstash Redis (Optional) | Fallback to in-memory FIFO with automated expired pruning |
+| **Testing** | Vitest | Comprehensive unit test suite for crypto and clip storage |
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js (v18 or newer)
+- npm or pnpm
+
+### Installation
 
 ```bash
+# Clone the repository
+git clone https://github.com/TanmayNileshShinde/clip-sync-pro.git
+
+# Navigate into the project directory
+cd clip-sync-pro
+
 # Install dependencies
 npm install
+```
 
-# Start development server
+### Running Locally
+
+```bash
+# Start local development server with Vite HMR
 npm run dev
+```
 
-# Build production bundle
-npm run build
+Visit `http://localhost:5173` in your browser.
+
+---
+
+## 🧪 Testing & Code Quality
+
+ClipSync Pro includes a full test suite powered by **Vitest** and high-speed linting via **oxlint**.
+
+```bash
+# Run all unit tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
 
 # Run linter
 npm run lint
+
+# Build production bundle
+npm run build
 ```
+
+---
+
+## 🌐 Deployment to Vercel
+
+The application is pre-configured for Vercel deployment with serverless edge functions:
+
+### Option 1: Vercel CLI (1-step)
+```bash
+npx vercel --prod
+```
+
+### Option 2: GitHub Integration
+1. Push your repository to GitHub.
+2. Import the project in the [Vercel Dashboard](https://vercel.com/new).
+3. The build configuration (`npm run build` -> `dist`) is recognized automatically.
+
+### Optional Cloud Persistence (Vercel KV / Redis)
+ClipSync Pro runs out-of-the-box using serverless in-memory storage. For multi-region persistent storage:
+1. In your Vercel Project Dashboard, navigate to **Storage**.
+2. Create a **KV** database and connect it to your project.
+3. The serverless handler will automatically detect `KV_REST_API_URL` and `KV_REST_API_TOKEN` and persist clips seamlessly.
+
+---
+
+## 📄 License
+
+Distributed under the **MIT License**. See `LICENSE` for more information.
+
+---
+
+## 👨‍💻 Author
+
+**Tanmay Nilesh Shinde**
+- GitHub: [@TanmayNileshShinde](https://github.com/TanmayNileshShinde)
+- Email: tanmaynileshshinde@gmail.com

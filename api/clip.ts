@@ -43,6 +43,23 @@ if (!globalStore.__clips_cache__) {
 }
 const memoryClips = globalStore.__clips_cache__
 
+// Periodic cleanup helper to prevent memory bloat on warm serverless instances
+function pruneMemoryClips() {
+  const now = Date.now()
+  for (const [code, clip] of memoryClips.entries()) {
+    if (clip.expiresAt > 0 && clip.expiresAt < now) {
+      memoryClips.delete(code)
+    }
+  }
+  // Cap max stored clips to 1,000 items with FIFO eviction
+  if (memoryClips.size > 1000) {
+    const keysToEvict = Array.from(memoryClips.keys()).slice(0, memoryClips.size - 800)
+    for (const k of keysToEvict) {
+      memoryClips.delete(k)
+    }
+  }
+}
+
 // Upstash / Vercel KV REST helpers (active if user links Vercel KV / Upstash Redis)
 const redisUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL
 const redisToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN
@@ -100,14 +117,20 @@ async function deleteFromRedis(key: string) {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Enable CORS for cross-device requests
+  // Security and CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  res.setHeader('X-Content-Type-Options', 'nosniff')
+  res.setHeader('X-Frame-Options', 'DENY')
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
 
   if (req.method === 'OPTIONS') {
     return res.status(204).end()
   }
+
+  // Run periodic maintenance
+  pruneMemoryClips()
 
   // POST: Create a new clip
   if (req.method === 'POST') {
@@ -115,13 +138,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const data = (typeof req.body === 'string' ? JSON.parse(req.body) : req.body) as Partial<ClipPayload>
       let code = data.code?.trim() || ''
 
-      if (!code || code.length !== 6 || isNaN(Number(code))) {
+      // Validate or generate random 6-digit numeric code
+      if (!code || !/^\d{6}$/.test(code)) {
         do {
           code = Math.floor(100000 + Math.random() * 900000).toString()
         } while (memoryClips.has(code))
       }
 
-      const expiresAt = data.expiresAt || Date.now() + 24 * 60 * 60 * 1000
+      // Safe lifespan bounds: default 24h, min 1 min, max 7 days
+      const maxExpiry = Date.now() + 7 * 24 * 60 * 60 * 1000
+      const minExpiry = Date.now() + 60 * 1000
+      const requestedExpiry = Number(data.expiresAt) || (Date.now() + 24 * 60 * 60 * 1000)
+      const expiresAt = Math.min(Math.max(minExpiry, requestedExpiry), maxExpiry)
+
       const attachments = data.attachments || (data.attachment ? [data.attachment] : undefined)
       const clip: ClipPayload = {
         code,
@@ -155,15 +184,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   let codeParam = (req.query.code as string)?.trim() || ''
   if (!codeParam && req.url) {
     const pathPart = req.url.split('?')[0].replace('/api/clip/', '').replace('/api/clip', '').trim()
-    if (pathPart.length === 6) {
+    if (/^\d{6}$/.test(pathPart)) {
       codeParam = pathPart
     }
   }
 
   // GET: Retrieve clip by code
   if (req.method === 'GET') {
-    if (!codeParam || codeParam.length !== 6) {
-      return res.status(400).json({ success: false, error: 'Please provide a 6-digit code' })
+    if (!codeParam || !/^\d{6}$/.test(codeParam)) {
+      return res.status(400).json({ success: false, error: 'Please provide a valid 6-digit numeric code' })
     }
 
     // 1. Try serverless memory
@@ -195,7 +224,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // DELETE: Remove clip
   if (req.method === 'DELETE') {
-    if (codeParam) {
+    if (codeParam && /^\d{6}$/.test(codeParam)) {
       memoryClips.delete(codeParam)
       await deleteFromRedis(`clip:${codeParam}`)
     }

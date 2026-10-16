@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   Flame,
   ArrowRight,
+  Download,
 } from 'lucide-react'
 import type { ClipItem } from '../types/clipboard'
 import { playCopySound, playClickSound } from '../utils/sound'
@@ -90,6 +91,35 @@ export const SendSuccessModal: React.FC<SendSuccessModalProps> = ({
     }
   }
 
+  const handleDownloadQR = () => {
+    if (!canvasRef.current) return
+    playClickSound()
+    const dataUrl = canvasRef.current.toDataURL('image/png')
+    const link = document.createElement('a')
+    link.href = dataUrl
+    link.download = `clipsync_${clip.code}_qr.png`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
+
+  const handleNativeShare = async () => {
+    playClickSound()
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'ClipSync Pro - Shared Clip',
+          text: `Access this clip with 6-digit code: ${clip.code}`,
+          url: shareUrl,
+        })
+      } catch {
+        // User cancelled or share dismissed
+      }
+    }
+  }
+
   const digits = clip.code.split('')
 
   return (
@@ -155,6 +185,14 @@ export const SendSuccessModal: React.FC<SendSuccessModalProps> = ({
               <QrCode size={13} />
               <span>Scan with phone camera to open instantly</span>
             </div>
+            <button
+              type="button"
+              className="btn-qr-download"
+              onClick={handleDownloadQR}
+              title="Download QR code image (PNG)"
+            >
+              <Download size={12} /> Save QR Image
+            </button>
           </div>
 
           {/* Direct Link */}
@@ -174,8 +212,18 @@ export const SendSuccessModal: React.FC<SendSuccessModalProps> = ({
                 onClick={handleCopyLink}
                 title="Copy URL"
               >
-                {copiedLink ? <Check size={16} /> : <Share2 size={16} />}
+                {copiedLink ? <Check size={16} /> : <Copy size={16} />}
               </button>
+              {canShare && (
+                <button
+                  type="button"
+                  className="link-copy-btn"
+                  onClick={handleNativeShare}
+                  title="Share via device menu"
+                >
+                  <Share2 size={16} />
+                </button>
+              )}
             </div>
 
             {/* Meta Tags */}

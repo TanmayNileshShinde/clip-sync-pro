@@ -1,11 +1,16 @@
 {
-  "name": "shared-clipboard",
+  "name": "clip-sync-pro",
+  "version": "1.0.0",
+  "description": "High-performance, zero-friction universal cross-device clipboard & file transfer with client-side AES-GCM 256 encryption",
   "private": true,
-  "version": "0.0.0",
   "type": "module",
+  "author": "Tanmay Nilesh Shinde <tanmaynileshshinde@gmail.com>",
+  "license": "MIT",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "lint": "oxlint",
     "preview": "vite preview"
   },
@@ -32,6 +37,7 @@
     "@vitejs/plugin-react": "^6.1.1",
     "oxlint": "^1.81.0",
     "typescript": "~6.0.2",
-    "vite": "^8.3.0"
+    "vite": "^8.3.0",
+    "vitest": "^5.0.5"
   }
 }

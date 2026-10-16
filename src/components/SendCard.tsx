@@ -17,6 +17,9 @@ import {
   X,
   ZoomIn,
   Plus,
+  Binary,
+  Type,
+  AlignLeft,
 } from 'lucide-react'
 import type { ClipItem, ClipType, ClipAttachment } from '../types/clipboard'
 import { encryptPayload } from '../utils/crypto'
@@ -226,6 +229,63 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
     } catch {
       showFeedback('Text is not valid JSON', 'error')
       playErrorSound()
+    }
+  }
+
+  // Clean trailing whitespace & excessive blank lines
+  const handleCleanWhitespace = () => {
+    playClickSound()
+    if (!textContent.trim()) return
+    const cleaned = textContent
+      .split('\n')
+      .map((line) => line.trimEnd())
+      .join('\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+    setTextContent(cleaned)
+    showFeedback('Cleaned trailing whitespace & blank lines', 'success')
+    playSuccessSound()
+  }
+
+  // Base64 toggle helper (auto encode or decode)
+  const handleToggleBase64 = () => {
+    playClickSound()
+    if (!textContent.trim()) return
+    try {
+      const trimmed = textContent.trim()
+      const isBase64 = /^[A-Za-z0-9+/=]+$/.test(trimmed) && trimmed.length % 4 === 0
+      if (isBase64) {
+        try {
+          const decoded = decodeURIComponent(escape(atob(trimmed)))
+          setTextContent(decoded)
+          showFeedback('Decoded from Base64!', 'success')
+          playSuccessSound()
+          return
+        } catch {
+          // Fall through to encode
+        }
+      }
+      const encoded = btoa(unescape(encodeURIComponent(textContent)))
+      setTextContent(encoded)
+      showFeedback('Encoded to Base64!', 'success')
+      playSuccessSound()
+    } catch {
+      showFeedback('Base64 conversion failed', 'error')
+      playErrorSound()
+    }
+  }
+
+  // Case toggle helper (UPPERCASE <-> lowercase)
+  const handleToggleCase = () => {
+    playClickSound()
+    if (!textContent.trim()) return
+    const isUpper = textContent === textContent.toUpperCase() && textContent !== textContent.toLowerCase()
+    if (isUpper) {
+      setTextContent(textContent.toLowerCase())
+      showFeedback('Switched to lowercase', 'info')
+    } else {
+      setTextContent(textContent.toUpperCase())
+      showFeedback('Switched to UPPERCASE', 'info')
     }
   }
 
@@ -512,6 +572,35 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
                 >
                   <Braces size={13} /> Format JSON
                 </button>
+              ) : null}
+
+              {textContent.trim() ? (
+                <>
+                  <button
+                    type="button"
+                    className="micro-action-btn"
+                    onClick={handleCleanWhitespace}
+                    title="Clean trailing whitespace and blank lines"
+                  >
+                    <AlignLeft size={13} /> Clean
+                  </button>
+                  <button
+                    type="button"
+                    className="micro-action-btn"
+                    onClick={handleToggleBase64}
+                    title="Encode to or decode from Base64"
+                  >
+                    <Binary size={13} /> Base64
+                  </button>
+                  <button
+                    type="button"
+                    className="micro-action-btn"
+                    onClick={handleToggleCase}
+                    title="Toggle UPPERCASE / lowercase"
+                  >
+                    <Type size={13} /> aA
+                  </button>
+                </>
               ) : null}
 
               <button
