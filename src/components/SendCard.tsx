@@ -20,13 +20,17 @@ import {
   Binary,
   Type,
   AlignLeft,
+  Mic,
+  Volume2,
 } from 'lucide-react'
+import confetti from 'canvas-confetti'
 import type { ClipItem, ClipType, ClipAttachment } from '../types/clipboard'
 import { encryptPayload } from '../utils/crypto'
 import { playClickSound, playSuccessSound, playErrorSound } from '../utils/sound'
 import { generateRandomCode, sendClip } from '../services/clipStore'
 import { isImageFile, optimizeImageAttachment } from '../utils/imageOptimizer'
 import { ImageLightboxModal } from './ImageLightboxModal'
+import { VoiceRecorderModal } from './VoiceRecorderModal'
 
 interface SendCardProps {
   onClipCreated: (clip: ClipItem) => void
@@ -42,6 +46,7 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
   const [isEncrypted, setIsEncrypted] = useState(false)
   const [password, setPassword] = useState('')
   const [expiryHours, setExpiryHours] = useState<number>(24) // 24 hours default
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false)
 
   const [isLoading, setIsLoading] = useState(false)
   const [isProcessingFiles, setIsProcessingFiles] = useState(false)
@@ -124,6 +129,30 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
 
     setIsProcessingFiles(false)
   }, [])
+
+  // Process recorded Voice Memo from VoiceRecorderModal
+  const handleVoiceRecorded = async (file: File) => {
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result as string)
+        reader.onerror = () => reject(new Error('Failed to read audio'))
+        reader.readAsDataURL(file)
+      })
+      const audioItem: ClipAttachment = {
+        id: `${Date.now()}_voice`,
+        content: dataUrl,
+        name: file.name,
+        size: file.size,
+        mimeType: file.type || 'audio/webm',
+      }
+      setAttachments((prev) => [...prev, audioItem])
+      showFeedback('Voice Memo attached to clip!', 'success')
+      playSuccessSound()
+    } catch (err: unknown) {
+      showFeedback('Failed to attach voice memo: ' + (err as Error).message, 'error')
+    }
+  }
 
   // Listen for global Ctrl+V paste (allows pasting multiple screenshots/images anytime!)
   useEffect(() => {
@@ -382,6 +411,16 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
       })
 
       playSuccessSound()
+      try {
+        confetti({
+          particleCount: 80,
+          spread: 70,
+          origin: { y: 0.65 },
+          colors: ['#eab308', '#38bdf8', '#4ade80', '#a855f7'],
+        })
+      } catch {
+        // Ignore confetti errors
+      }
       onClipCreated(newClip)
     } catch (err: unknown) {
       playErrorSound()
@@ -492,9 +531,27 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
         >
           <FileUp size={15} />
           <span>
-            {attachments.filter((a) => !a.mimeType.startsWith('image/')).length > 0
-              ? `${attachments.filter((a) => !a.mimeType.startsWith('image/')).length} File(s) Attached`
+            {attachments.filter((a) => !a.mimeType.startsWith('image/') && !a.mimeType.startsWith('audio/')).length > 0
+              ? `${attachments.filter((a) => !a.mimeType.startsWith('image/') && !a.mimeType.startsWith('audio/')).length} File(s) Attached`
               : '+ Attach Files'}
+          </span>
+        </button>
+
+        {/* Record Voice Memo button */}
+        <button
+          type="button"
+          className={`type-pill ${attachments.some((a) => a.mimeType.startsWith('audio/')) ? 'active' : ''}`}
+          onClick={() => {
+            playClickSound()
+            setIsVoiceModalOpen(true)
+          }}
+          title="Record a voice note or audio memo"
+        >
+          <Mic size={15} />
+          <span>
+            {attachments.filter((a) => a.mimeType.startsWith('audio/')).length > 0
+              ? `${attachments.filter((a) => a.mimeType.startsWith('audio/')).length} Voice Memo(s)`
+              : 'Voice Memo'}
           </span>
         </button>
 
@@ -648,6 +705,7 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
             <div className="gallery-thumbnails-grid">
               {attachments.map((item, idx) => {
                 const isImage = item.mimeType.startsWith('image/')
+                const isAudio = item.mimeType.startsWith('audio/')
                 const imgIdx = imageAttachments.findIndex((a) => a === item)
 
                 return (
@@ -667,6 +725,10 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
                         <div className="thumb-zoom-overlay">
                           <ZoomIn size={14} />
                         </div>
+                      </div>
+                    ) : isAudio ? (
+                      <div className="thumb-file-box" style={{ background: 'rgba(234, 179, 8, 0.15)', color: 'var(--accent-primary)' }}>
+                        <Volume2 size={24} />
                       </div>
                     ) : (
                       <div className="thumb-file-box">
@@ -844,6 +906,13 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
           onClose={() => setLightboxIndex(null)}
         />
       )}
+
+      {/* Voice Recorder Modal */}
+      <VoiceRecorderModal
+        isOpen={isVoiceModalOpen}
+        onClose={() => setIsVoiceModalOpen(false)}
+        onVoiceRecorded={handleVoiceRecorded}
+      />
     </div>
   )
 }

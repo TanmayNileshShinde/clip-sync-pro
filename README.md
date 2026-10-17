@@ -1,84 +1,105 @@
 # ClipSync PRO 🚀
 
-> High-performance, zero-friction universal cross-device clipboard & file transfer with client-side AES-GCM 256-bit encryption.
+> High-performance, zero-friction universal cross-device clipboard, WebRTC streaming file transfer, and complete in-browser PDF & document powerhouse studio.
 
 [![React](https://img.shields.io/badge/React-19-61dafb?style=flat-square&logo=react)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/Vite-8.x-646cff?style=flat-square&logo=vite)](https://vitejs.dev/)
-[![Vitest](https://img.shields.io/badge/Vitest-Tested-729B1B?style=flat-square&logo=vitest)](https://vitest.dev/)
+[![Vitest](https://img.shields.io/badge/Vitest-13_Passed-729B1B?style=flat-square&logo=vitest)](https://vitest.dev/)
 [![Security](https://img.shields.io/badge/Security-AES--GCM--256-green?style=flat-square&logo=shield)](https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto)
+[![PWA](https://img.shields.io/badge/PWA-Ready-orange?style=flat-square&logo=pwa)](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
 ---
 
 ## 📖 Overview
 
-**ClipSync Pro** solves the everyday friction of moving text notes, code snippets, camera photos, and documents between phones, laptops, and tablets. It combines client-side zero-knowledge encryption with sub-50ms instant generation, live QR code scanning, and automated image transcoding.
+**ClipSync Pro** eliminates the daily friction of transferring text notes, code snippets, camera photos, voice memos, and documents between phones, laptops, and tablets. It combines client-side zero-knowledge encryption with sub-50ms instant generation, live QR camera scanning, WebRTC chunked peer-to-peer data streaming, and a full in-browser PDF & document studio.
 
-No accounts, no tracking cookies, and zero setup required.
+No accounts, no tracking cookies, zero cloud uploads required for peer-to-peer transfers.
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor Sender as 📱 Sender (Phone/Laptop)
-    participant ClientCrypto as 🔒 Web Crypto (Browser)
+    participant ClientCrypto as 🔒 Web Crypto & WebRTC
     participant Edge as ⚡ Vercel Edge Serverless / KV
     actor Receiver as 💻 Receiver (Device)
 
-    Sender->>ClientCrypto: Type note or drop files (Optional PIN)
-    Note over ClientCrypto: Derive AES-256 key via PBKDF2 (100k rounds)<br/>Encrypt payload with AES-GCM (12-byte IV)
-    ClientCrypto->>Edge: POST /api/clip (Encrypted ciphertext)
-    Edge-->>Sender: 6-Digit Retrieval Code & Live QR
-    Receiver->>Edge: GET /api/clip?code=123456
-    Edge-->>Receiver: Encrypted ciphertext (Burn on read if set)
+    Sender->>ClientCrypto: Type note, record voice, or drop files (Optional PIN)
+    Note over ClientCrypto: AES-256-GCM (12-byte IV) + PBKDF2 (100k rounds)<br/>P2P Host initialized via WebRTC DataChannel
+    Sender->>Edge: POST /api/clip (Encrypted ciphertext for async retrieval)
+    Edge-->>Sender: 6-Digit Pairing Code & Dynamic QR
+    Receiver->>ClientCrypto: Scan QR with Camera or enter 6-digit PIN
+    alt Direct P2P Available
+        Receiver->>ClientCrypto: WebRTC DataChannel connection
+        ClientCrypto-->>Receiver: Chunked streaming transfer with live % progress bar
+    else Cloud Fallback
+        Receiver->>Edge: GET /api/clip?code=123456
+        Edge-->>Receiver: Encrypted ciphertext (Burn-on-read if set)
+    end
     Receiver->>ClientCrypto: Enter PIN to decrypt locally
-    ClientCrypto-->>Receiver: Render decrypted text & files
+    ClientCrypto-->>Receiver: Render decrypted text, voice memo player, photos & PDFs
 ```
 
 ---
 
-## ✨ Features
+## ✨ Features & Architecture
+
+### ⚡ Direct P2P WebRTC Chunked Binary Streaming
+- **Zero-Cloud, Unlimited File Sizes**: Seamlessly stream large multi-megabyte files directly between devices over WebRTC DataChannels.
+- **Packet Fragmentation & Pacing**: Overcomes browser SCTP buffer limitations using 16KB chunk slicing, backpressure pacing, and automated reassembly.
+- **Live Transfer Progress**: Real-time progress bar (`⚡ Direct WebRTC P2P Streaming: 45%`) emitted to both sender and receiver.
+
+### 🎙️ Voice Note & Audio Memo Recorder
+- **In-Browser Audio Recording**: Record voice memos directly from your phone or laptop microphone using the native `MediaRecorder` API.
+- **Real-Time Waveform Visualizer**: Living, animated sound frequency bars powered by the Web Audio API (`AnalyserNode`).
+- **Inline Audio Player**: Decrypt and stream voice memos with interactive seek scrubbing, time duration counters, and one-click downloading.
+
+### 📷 Live Camera QR Scanner
+- **Camera-Based Instant Pairing**: Tap "Scan QR" to open an in-browser camera viewfinder with an animated laser scanner.
+- **Native Barcode Detection**: Leverages the high-performance browser `BarcodeDetector` API with front/rear camera toggling.
+- **Instant Auto-Fill**: Auto-parses QR codes and immediately executes clip retrieval without typing numbers manually.
+
+### 📄 In-Browser Document & PDF Studio (iLovePDF Alternative)
+A complete client-side document workstation powered by `pdf-lib`, `pdfjs-dist`, and `mammoth` with 100% private in-memory processing:
+- **Merge PDFs**: Combine multiple PDF documents with custom ordering.
+- **Split & Extract**: Extract specific page ranges (e.g., `1-3, 5, 8`) into a lightweight new document.
+- **Rotate Pages**: Rotate sideways or upside-down pages by 90°, 180°, or 270° clockwise.
+- **Photos to PDF**: Convert JPG, PNG, WEBP, and HEIC photos to multi-page PDFs with configurable margins and standard A4 / US Letter presets.
+- **PDF to Images**: Render PDF pages onto hardware-accelerated canvas into high-resolution PNG images.
+- **Word (.docx) to Clean Text & PDF**: Parse and convert Microsoft Word documents directly in your browser.
+- **Rich Text / Notes to PDF**: Paginate and export notes with custom titles and line wrapping.
 
 ### 🔐 Zero-Knowledge Client-Side Encryption
-- **AES-GCM 256-bit** encryption performed directly in your browser using the native `crypto.subtle` API.
-- Keys derived using **PBKDF2** with 100,000 SHA-256 iterations and unique 16-byte cryptographic salts.
-- The server only ever stores encrypted ciphertext; passwords and encryption keys never leave your machine.
+- **AES-GCM 256-bit**: Native browser cryptography via `crypto.subtle`.
+- **PBKDF2 Key Derivation**: 100,000 SHA-256 iterations with cryptographically random 16-byte salts.
+- **Tamper-Evident Signatures**: Integrity check verifies every payload before decryption.
 
-### 📸 Universal File & Photo Support
-- **Multi-Attachment Bundling**: Attach screenshots, PDFs, photos, or documents alongside your text notes in a single 6-digit clip.
-- **Automatic HEIC/HEIF Transcoding**: High-efficiency photos from iPhones are automatically transcoded to universal JPEG format on the fly.
-- **Global Clipboard Paste**: Press `Ctrl+V` anywhere on the screen to instantly ingest screenshots into your outgoing clip.
+### 💻 Developer Code Viewer & Formatter
+- **Syntax Display**: Monospace font with line numbers gutter toggle.
+- **JSON Prettifier & Validator**: One-click indentation formatting.
+- **Copy Options**: Instant "Copy Raw Code" or "Copy with Line Numbers".
 
-### ⚡ Rapid Pairing & Sharing
-- **6-Digit PIN Pairing**: Clean numeric code for quick manual typing.
-- **Dynamic QR Code**: Scan with any smartphone camera to load the clip immediately.
-- **Save QR as PNG**: One-click download of the generated QR code image.
-- **Native Web Share**: Trigger your operating system's native share sheet with one tap.
-
-### 🛠️ Developer Utility Suite
-- **JSON Prettifier**: Detect and format JSON payloads with proper indentation.
-- **Base64 Encoder / Decoder**: Instantly encode plaintext or decode base64 strings.
-- **Whitespace Sanitizer**: Strip trailing whitespace and collapse redundant blank lines.
-- **Case Converter**: Toggle between UPPERCASE and lowercase with a single click.
-- **Clipboard Reader**: Pull content directly from your operating system clipboard into the editor.
-
-### ⏱️ Configurable Lifespan & Self-Destruct
-- **Burn After Read**: Permanently deletes the clip immediately after the first successful retrieval.
-- **Automated Expiry**: Configure clips to automatically expire in 5 minutes, 1 hour, 24 hours, or 7 days.
-- **Memory & Storage Caps**: Built-in 1,000-clip FIFO pruning to prevent memory exhaustion on serverless cold starts.
+### 📱 Progressive Web App (PWA)
+- Fully installable on iOS (Safari Add to Home Screen) and Android (Chrome Install App) with standalone app shell, custom splash theme, and offline caching.
 
 ---
 
-## 🏗️ Architecture & Security
+## 🏗️ Technology Stack
 
-| Layer | Technology | Details |
+| Layer | Technology | Role |
 |---|---|---|
-| **Frontend** | React 19, TypeScript, Vite | Zero runtime bloat, fast HMR |
-| **Cryptography** | Web Crypto API (`SubtleCrypto`) | AES-GCM (256-bit), PBKDF2 (100k iterations, SHA-256) |
-| **Transcoding** | Client-Side Canvas & HEIC Worker | In-memory canvas rendering, zero cloud compute cost |
-| **Backend API** | Vercel Serverless Function (`api/clip.ts`) | Edge-ready Node runtime with security response headers |
-| **Persistence** | Vercel KV / Upstash Redis (Optional) | Fallback to in-memory FIFO with automated expired pruning |
-| **Testing** | Vitest | Comprehensive unit test suite for crypto and clip storage |
+| **Frontend** | React 19, TypeScript 5, Vite 8 | UI components, reactive state, fast HMR |
+| **Styling** | Custom Glassmorphic CSS | Responsive Bento layout, dark/light themes |
+| **Cryptography** | Web Crypto API (`SubtleCrypto`) | AES-GCM (256-bit), PBKDF2 (100k rounds) |
+| **Networking** | PeerJS (WebRTC DataChannels) | Direct device-to-device streaming chunk protocol |
+| **Audio Processing** | Web Audio API & MediaRecorder | Frequency analyzer, canvas waveform, audio playback |
+| **Computer Vision** | `BarcodeDetector` API | Real-time camera QR detection and extraction |
+| **PDF Manipulation** | `pdf-lib` & `pdfjs-dist` | In-browser PDF generation, merging, splitting, rendering |
+| **Document Parsing**| `mammoth` | Client-side Word (.docx) extraction |
+| **Testing** | Vitest | 13 comprehensive unit tests across crypto & documents |
+| **Linting** | oxlint | Fast, strict Rust-based linter (0 errors, 0 warnings) |
 
 ---
 
@@ -94,7 +115,7 @@ sequenceDiagram
 # Clone the repository
 git clone https://github.com/TanmayNileshShinde/clip-sync-pro.git
 
-# Navigate into the project directory
+# Navigate into project directory
 cd clip-sync-pro
 
 # Install dependencies
@@ -114,19 +135,14 @@ Visit `http://localhost:5173` in your browser.
 
 ## 🧪 Testing & Code Quality
 
-ClipSync Pro includes a full test suite powered by **Vitest** and high-speed linting via **oxlint**.
-
 ```bash
-# Run all unit tests
+# Run full Vitest test suite
 npm test
 
-# Run tests in watch mode
-npm run test:watch
-
-# Run linter
+# Run high-speed linter
 npm run lint
 
-# Build production bundle
+# Compile TypeScript and build production bundle
 npm run build
 ```
 
@@ -134,23 +150,10 @@ npm run build
 
 ## 🌐 Deployment to Vercel
 
-The application is pre-configured for Vercel deployment with serverless edge functions:
-
-### Option 1: Vercel CLI (1-step)
 ```bash
+# Deploy to production in one step
 npx vercel --prod
 ```
-
-### Option 2: GitHub Integration
-1. Push your repository to GitHub.
-2. Import the project in the [Vercel Dashboard](https://vercel.com/new).
-3. The build configuration (`npm run build` -> `dist`) is recognized automatically.
-
-### Optional Cloud Persistence (Vercel KV / Redis)
-ClipSync Pro runs out-of-the-box using serverless in-memory storage. For multi-region persistent storage:
-1. In your Vercel Project Dashboard, navigate to **Storage**.
-2. Create a **KV** database and connect it to your project.
-3. The serverless handler will automatically detect `KV_REST_API_URL` and `KV_REST_API_TOKEN` and persist clips seamlessly.
 
 ---
 

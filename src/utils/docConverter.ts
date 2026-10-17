@@ -1,4 +1,12 @@
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
+import { degrees, PDFDocument, rgb, StandardFonts } from 'pdf-lib'
+import * as pdfjsLib from 'pdfjs-dist'
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+import mammoth from 'mammoth'
+
+// Initialize PDF.js worker in browser environment
+if (typeof window !== 'undefined' && pdfjsLib.GlobalWorkerOptions) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker
+}
 
 /**
  * Convert text to a cleanly paginated PDF Blob using pdf-lib
@@ -19,7 +27,7 @@ export async function createPdfFromText(
   const lineHeight = 16
 
   // Helper function to wrap text within width
-  const wrapText = (str: string, width: number, f: any, size: number) => {
+  const wrapText = (str: string, width: number, f: typeof font, size: number) => {
     const words = str.split(/\s+/)
     const wrappedLines: string[] = []
     let currentLine = ''
@@ -192,4 +200,142 @@ export async function mergePdfFiles(files: File[]): Promise<Blob> {
     pdfBytes.byteOffset + pdfBytes.byteLength
   ) as ArrayBuffer
   return new Blob([arrayBuffer], { type: 'application/pdf' })
+}
+
+/**
+ * Split a PDF file by extracting selected page ranges (e.g. "1, 3-5, 8")
+ */
+export async function splitPdf(file: File, pageRangesStr: string): Promise<Blob> {
+  const arrayBuffer = await file.arrayBuffer()
+  const srcDoc = await PDFDocument.load(arrayBuffer)
+  const totalPages = srcDoc.getPageCount()
+
+  // Parse page range string (1-indexed)
+  const targetIndices: number[] = []
+  const parts = pageRangesStr.split(',').map((p) => p.trim()).filter(Boolean)
+
+  for (const part of parts) {
+    if (part.includes('-')) {
+      const [startStr, endStr] = part.split('-').map((s) => s.trim())
+      const start = parseInt(startStr, 10)
+      const end = parseInt(endStr, 10)
+      if (isNaN(start) || isNaN(end) || start < 1 || end > totalPages || start > end) {
+        throw new Error(`Invalid page range "${part}". Valid range is 1 to ${totalPages}.`)
+      }
+      for (let i = start; i <= end; i++) {
+        targetIndices.push(i - 1)
+      }
+    } else {
+      const pageNum = parseInt(part, 10)
+      if (isNaN(pageNum) || pageNum < 1 || pageNum > totalPages) {
+        throw new Error(`Invalid page number "${part}". Document has ${totalPages} page(s).`)
+      }
+      targetIndices.push(pageNum - 1)
+    }
+  }
+
+  if (targetIndices.length === 0) {
+    throw new Error('No valid pages selected for extraction.')
+  }
+
+  const newDoc = await PDFDocument.create()
+  const copiedPages = await newDoc.copyPages(srcDoc, targetIndices)
+  copiedPages.forEach((page) => newDoc.addPage(page))
+
+  const pdfBytes = await newDoc.save()
+  const outBuffer = pdfBytes.buffer.slice(
+    pdfBytes.byteOffset,
+    pdfBytes.byteOffset + pdfBytes.byteLength
+  ) as ArrayBuffer
+  return new Blob([outBuffer], { type: 'application/pdf' })
+}
+
+/**
+ * Rotate PDF pages by 90, 180, or 270 degrees
+ */
+export async function rotatePdfPages(
+  file: File,
+  rotationDegrees: number,
+  pageNumbers?: number[]
+): Promise<Blob> {
+  const arrayBuffer = await file.arrayBuffer()
+  const pdfDoc = await PDFDocument.load(arrayBuffer)
+  const pages = pdfDoc.getPages()
+
+  const targetSet = pageNumbers && pageNumbers.length > 0 ? new Set(pageNumbers.map((p) => p - 1)) : null
+
+  pages.forEach((page, idx) => {
+    if (!targetSet || targetSet.has(idx)) {
+      const currentRotation = page.getRotation().angle
+      const nextRotation = (currentRotation + rotationDegrees) % 360
+      page.setRotation(degrees(nextRotation))
+    }
+  })
+
+  const pdfBytes = await pdfDoc.save()
+  const outBuffer = pdfBytes.buffer.slice(
+    pdfBytes.byteOffset,
+    pdfBytes.byteOffset + pdfBytes.byteLength
+  ) as ArrayBuffer
+  return new Blob([outBuffer], { type: 'application/pdf' })
+}
+
+/**
+ * Render PDF pages to high-res PNG data URLs in browser using PDF.js
+ */
+export async function renderPdfPagesToImages(
+  file: File,
+  maxPages = 30,
+  scale = 1.5
+): Promise<{ pageNum: number; dataUrl: string; width: number; height: number }[]> {
+  const arrayBuffer = await file.arrayBuffer()
+  const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer })
+  const pdf = await loadingTask.promise
+  const numPages = Math.min(pdf.numPages, maxPages)
+  const results: { pageNum: number; dataUrl: string; width: number; height: number }[] = []
+
+  for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+    const page = await pdf.getPage(pageNum)
+    const viewport = page.getViewport({ scale })
+
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    if (!ctx) continue
+
+    canvas.width = viewport.width
+    canvas.height = viewport.height
+
+    const renderContext = {
+      canvasContext: ctx,
+      viewport,
+      canvas,
+    }
+
+    await page.render(renderContext).promise
+    const dataUrl = canvas.toDataURL('image/png')
+    results.push({
+      pageNum,
+      dataUrl,
+      width: viewport.width,
+      height: viewport.height,
+    })
+  }
+
+  return results
+}
+
+/**
+ * Extract clean formatted text and HTML from a Word (.docx) document using mammoth
+ */
+export async function extractDocxContent(
+  file: File
+): Promise<{ text: string; html: string }> {
+  const arrayBuffer = await file.arrayBuffer()
+  const textResult = await mammoth.extractRawText({ arrayBuffer })
+  const htmlResult = await mammoth.convertToHtml({ arrayBuffer })
+
+  return {
+    text: textResult.value.trim(),
+    html: htmlResult.value,
+  }
 }

@@ -17,13 +17,19 @@ import {
   ZoomIn,
   FileText,
   ClipboardPaste,
+  Camera,
+  Zap,
+  Volume2,
 } from 'lucide-react'
+import confetti from 'canvas-confetti'
 import type { ClipItem, ClipAttachment } from '../types/clipboard'
 import { decryptPayload, isEncryptedPayload } from '../utils/crypto'
 import { playCopySound, playClickSound, playSuccessSound, playErrorSound } from '../utils/sound'
 import { retrieveClip } from '../services/clipStore'
 import { isHeicFormat, convertHeicToJpegDataUrl } from '../utils/imageOptimizer'
 import { ImageLightboxModal } from './ImageLightboxModal'
+import { QrScannerModal } from './QrScannerModal'
+import { AudioPlayerItem } from './AudioPlayerItem'
 
 interface RetrieveCardProps {
   initialCode?: string
@@ -47,7 +53,22 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
   const [retrievedText, setRetrievedText] = useState<string | null>(null)
   const [retrievedAttachments, setRetrievedAttachments] = useState<ClipAttachment[]>([])
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
-  const [viewFilter, setViewFilter] = useState<'all' | 'photos' | 'text' | 'files'>('all')
+  const [viewFilter, setViewFilter] = useState<'all' | 'photos' | 'text' | 'files' | 'audio'>('all')
+  const [isQrScannerOpen, setIsQrScannerOpen] = useState(false)
+  const [p2pProgress, setP2pProgress] = useState<number | null>(null)
+  const [showLineNumbers, setShowLineNumbers] = useState(true)
+
+  // Subscribe to P2P streaming progress events
+  useEffect(() => {
+    const handleP2p = (e: Event) => {
+      const customEvent = e as CustomEvent<{ progress: number }>
+      if (customEvent.detail?.progress !== undefined) {
+        setP2pProgress(customEvent.detail.progress < 100 ? customEvent.detail.progress : null)
+      }
+    }
+    window.addEventListener('clipsync:p2p-progress', handleP2p)
+    return () => window.removeEventListener('clipsync:p2p-progress', handleP2p)
+  }, [])
 
   // Password / PIN unlock modal state
   const [requiresPassword, setRequiresPassword] = useState(false)
@@ -124,6 +145,16 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
           setRetrievedAttachments(normalized)
         })
         playSuccessSound()
+        try {
+          confetti({
+            particleCount: 70,
+            spread: 60,
+            origin: { y: 0.6 },
+            colors: ['#eab308', '#38bdf8', '#4ade80', '#a855f7'],
+          })
+        } catch {
+          // Ignore
+        }
       }
     } catch (err: unknown) {
       playErrorSound()
@@ -373,10 +404,14 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
 
   const hasData = Boolean(retrievedText) || retrievedAttachments.length > 0
   const imageAttachments = retrievedAttachments.filter((a) => a.mimeType.startsWith('image/'))
-  const otherFiles = retrievedAttachments.filter((a) => !a.mimeType.startsWith('image/'))
+  const audioAttachments = retrievedAttachments.filter((a) => a.mimeType.startsWith('audio/'))
+  const otherFiles = retrievedAttachments.filter(
+    (a) => !a.mimeType.startsWith('image/') && !a.mimeType.startsWith('audio/')
+  )
   const hasMultipleTypes =
     (retrievedText ? 1 : 0) +
     (imageAttachments.length > 0 ? 1 : 0) +
+    (audioAttachments.length > 0 ? 1 : 0) +
     (otherFiles.length > 0 ? 1 : 0) > 1
 
   return (
@@ -439,12 +474,65 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
             <ClipboardPaste size={14} /> Paste Code
           </button>
 
+          <button
+            type="button"
+            className="btn-retrieve-clear"
+            onClick={() => {
+              playClickSound()
+              setIsQrScannerOpen(true)
+            }}
+            title="Scan QR code using camera"
+          >
+            <Camera size={14} /> Scan QR
+          </button>
+
           {(digits.some((d) => d !== '') || retrievedClip) && (
             <button type="button" className="btn-retrieve-clear" onClick={handleReset}>
               <RefreshCw size={14} /> Clear
             </button>
           )}
         </div>
+
+        {/* P2P Live Streaming Progress Bar */}
+        {p2pProgress !== null && (
+          <div
+            className="p2p-stream-banner"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              padding: '0.65rem 1rem',
+              background: 'var(--accent-light)',
+              border: '1px solid var(--accent-border)',
+              borderRadius: '8px',
+              color: 'var(--accent-primary)',
+              fontSize: '0.82rem',
+              fontWeight: 600,
+              marginTop: '0.85rem',
+            }}
+          >
+            <Zap size={16} />
+            <span>⚡ Direct WebRTC P2P Streaming: {p2pProgress}%</span>
+            <div
+              style={{
+                flex: 1,
+                height: '6px',
+                background: 'rgba(0,0,0,0.25)',
+                borderRadius: '4px',
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  width: `${p2pProgress}%`,
+                  height: '100%',
+                  background: 'var(--accent-primary)',
+                  transition: 'width 0.2s ease',
+                }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Error Message */}
@@ -580,6 +668,20 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
                 </button>
               )}
 
+              {audioAttachments.length > 0 && (
+                <button
+                  type="button"
+                  className={`retrieved-filter-btn ${viewFilter === 'audio' ? 'active' : ''}`}
+                  onClick={() => {
+                    playClickSound()
+                    setViewFilter('audio')
+                  }}
+                >
+                  <Volume2 size={13} />
+                  <span>Voice ({audioAttachments.length})</span>
+                </button>
+              )}
+
               {retrievedText && (
                 <button
                   type="button"
@@ -696,16 +798,44 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
               </div>
             )}
 
-            {/* 3. Text / Code Section (Rendered THIRD with contained scrollable text-display-box) */}
+            {/* 3. Audio Voice Memos Section */}
+            {audioAttachments.length > 0 && (viewFilter === 'all' || viewFilter === 'audio') && (
+              <div
+                className="retrieved-audio-block"
+                style={{
+                  borderTop: (imageAttachments.length > 0 || otherFiles.length > 0) && viewFilter === 'all' ? '1px solid var(--card-border)' : 'none',
+                  paddingTop: (imageAttachments.length > 0 || otherFiles.length > 0) && viewFilter === 'all' ? '1rem' : '0',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.75rem',
+                }}
+              >
+                <div className="gallery-title-text" style={{ marginBottom: '0.25rem' }}>
+                  <Volume2 size={15} /> Voice Memos ({audioAttachments.length})
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                  {audioAttachments.map((audio, idx) => (
+                    <AudioPlayerItem
+                      key={audio.id || idx}
+                      src={audio.content}
+                      name={audio.name}
+                      size={audio.size}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 4. Text / Code Section with Line Numbers */}
             {retrievedText && (viewFilter === 'all' || viewFilter === 'text') && (
               <div
                 className="retrieved-text-block"
                 style={{
-                  borderTop: (imageAttachments.length > 0 || otherFiles.length > 0) && viewFilter === 'all' ? '1px solid var(--card-border)' : 'none',
-                  paddingTop: (imageAttachments.length > 0 || otherFiles.length > 0) && viewFilter === 'all' ? '1rem' : '0',
+                  borderTop: (imageAttachments.length > 0 || otherFiles.length > 0 || audioAttachments.length > 0) && viewFilter === 'all' ? '1px solid var(--card-border)' : 'none',
+                  paddingTop: (imageAttachments.length > 0 || otherFiles.length > 0 || audioAttachments.length > 0) && viewFilter === 'all' ? '1rem' : '0',
                 }}
               >
-                {(imageAttachments.length > 0 || otherFiles.length > 0) && viewFilter === 'all' && (
+                {(imageAttachments.length > 0 || otherFiles.length > 0 || audioAttachments.length > 0) && viewFilter === 'all' && (
                   <div className="gallery-header-row" style={{ marginBottom: '0.65rem' }}>
                     <span className="gallery-title-text">
                       <FileText size={15} /> Note / Code
@@ -713,11 +843,35 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
                   </div>
                 )}
 
-                <div className="text-display-box">
-                  <pre className={`pre-content ${retrievedClip.type === 'code' ? 'code-view' : ''}`}>
-                    <code>{retrievedText}</code>
-                  </pre>
+                <div className="text-display-box" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                  {retrievedClip.type === 'code' && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0.85rem', background: 'rgba(0,0,0,0.3)', borderBottom: '1px solid var(--card-border)', fontSize: '0.72rem' }}>
+                      <span style={{ fontWeight: 600, color: 'var(--accent-primary)' }}>Source Code</span>
+                      <button
+                        type="button"
+                        className="btn-tiny"
+                        onClick={() => setShowLineNumbers(!showLineNumbers)}
+                        style={{ fontSize: '0.7rem' }}
+                      >
+                        {showLineNumbers ? 'Hide Line Numbers' : 'Show Line Numbers'}
+                      </button>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', overflowX: 'auto' }}>
+                    {retrievedClip.type === 'code' && showLineNumbers && (
+                      <div style={{ padding: '0.85rem 0.6rem', userSelect: 'none', color: 'var(--text-muted)', borderRight: '1px solid var(--card-border)', textAlign: 'right', fontFamily: 'monospace', fontSize: '0.82rem', lineHeight: '1.5' }}>
+                        {retrievedText.split('\n').map((_, idx) => (
+                          <div key={idx}>{idx + 1}</div>
+                        ))}
+                      </div>
+                    )}
+                    <pre className={`pre-content ${retrievedClip.type === 'code' ? 'code-view' : ''}`} style={{ flex: 1, margin: 0 }}>
+                      <code>{retrievedText}</code>
+                    </pre>
+                  </div>
                 </div>
+
                 <div className="content-actions-bar" style={{ marginTop: '0.5rem', background: 'transparent' }}>
                   <button
                     type="button"
@@ -746,6 +900,16 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
           onClose={() => setLightboxIndex(null)}
         />
       )}
+
+      {/* QR Code Camera Scanner Modal */}
+      <QrScannerModal
+        isOpen={isQrScannerOpen}
+        onClose={() => setIsQrScannerOpen(false)}
+        onCodeScanned={(code) => {
+          setDigits(code.split(''))
+          executeRetrieve(code)
+        }}
+      />
     </div>
   )
 }

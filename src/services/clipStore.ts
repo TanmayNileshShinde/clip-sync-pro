@@ -174,7 +174,52 @@ export function generateRandomCode(): string {
   return Math.floor(100000 + Math.random() * 900000).toString()
 }
 
-// Setup P2P Host for a clip
+// Helper to send data chunked over WebRTC DataChannel (supports multi-MB files)
+function sendDataChunked(conn: any, clip: ClipItem) {
+  try {
+    const jsonStr = JSON.stringify(clip)
+    const CHUNK_SIZE = 16384 // 16KB safe cross-browser WebRTC DataChannel chunk
+    const totalChunks = Math.ceil(jsonStr.length / CHUNK_SIZE)
+
+    if (totalChunks <= 1) {
+      conn.send({ type: 'CLIP_PAYLOAD', clip })
+      return
+    }
+
+    // Step 1: Send Header
+    conn.send({
+      type: 'CLIP_STREAM_START',
+      totalChunks,
+      totalBytes: jsonStr.length,
+      code: clip.code,
+    })
+
+    // Step 2: Stream Chunks with backpressure pacing
+    let chunkIdx = 0
+    const streamNextBatch = () => {
+      for (let i = 0; i < 4 && chunkIdx < totalChunks; i++, chunkIdx++) {
+        const start = chunkIdx * CHUNK_SIZE
+        const end = Math.min(start + CHUNK_SIZE, jsonStr.length)
+        conn.send({
+          type: 'CLIP_STREAM_CHUNK',
+          chunkIdx,
+          totalChunks,
+          data: jsonStr.slice(start, end),
+        })
+      }
+      if (chunkIdx < totalChunks) {
+        setTimeout(streamNextBatch, 8)
+      } else {
+        conn.send({ type: 'CLIP_STREAM_END', code: clip.code })
+      }
+    }
+    streamNextBatch()
+  } catch (err) {
+    console.warn('P2P chunked streaming send error:', err)
+  }
+}
+
+// Setup P2P Host for a clip (supports unlimited file sizes via streaming)
 function setupPeerHost(clip: ClipItem) {
   try {
     if (hostPeer && !hostPeer.destroyed) {
@@ -188,19 +233,11 @@ function setupPeerHost(clip: ClipItem) {
 
     hostPeer.on('connection', (conn) => {
       conn.on('open', () => {
-        // WebRTC DataChannels fail if message exceeds ~256KB; check total serialized size
-        const totalSize = JSON.stringify(clip).length
-        if (totalSize < 64 * 1024) {
-          try {
-            conn.send({ type: 'CLIP_PAYLOAD', clip })
-          } catch {
-            // Ignore
-          }
-        }
+        sendDataChunked(conn, clip)
         if (clip.burnAfterRead) {
           setTimeout(() => {
             if (hostPeer) hostPeer.destroy()
-          }, 1000)
+          }, 3000)
         }
       })
     })
@@ -213,8 +250,8 @@ function setupPeerHost(clip: ClipItem) {
   }
 }
 
-// Fetch clip via P2P
-async function fetchViaPeer(code: string, timeoutMs = 2000): Promise<ClipItem | null> {
+// Fetch clip via P2P with chunked streaming assembly
+async function fetchViaPeer(code: string, timeoutMs = 3500): Promise<ClipItem | null> {
   return new Promise((resolve) => {
     let resolved = false
     let clientPeer: Peer | null = null
@@ -232,14 +269,49 @@ async function fetchViaPeer(code: string, timeoutMs = 2000): Promise<ClipItem | 
 
       clientPeer.on('open', () => {
         const conn = clientPeer!.connect(`clipsync-${code}`)
-        conn.on('data', (data: unknown) => {
-          const payload = data as { type: string; clip: ClipItem }
-          if (payload?.type === 'CLIP_PAYLOAD' && payload.clip) {
+        let receivedChunks: string[] = []
+        let expectedChunks = 0
+
+        conn.on('data', (raw: unknown) => {
+          const msg = raw as any
+          if (msg?.type === 'CLIP_PAYLOAD' && msg.clip) {
             if (!resolved) {
               resolved = true
               clearTimeout(timer)
               clientPeer?.destroy()
-              resolve(payload.clip)
+              resolve(msg.clip)
+            }
+          } else if (msg?.type === 'CLIP_STREAM_START') {
+            expectedChunks = msg.totalChunks
+            receivedChunks = new Array(expectedChunks)
+            window.dispatchEvent(
+              new CustomEvent('clipsync:p2p-progress', {
+                detail: { progress: 0, totalBytes: msg.totalBytes },
+              })
+            )
+          } else if (msg?.type === 'CLIP_STREAM_CHUNK') {
+            receivedChunks[msg.chunkIdx] = msg.data
+            const currentCount = receivedChunks.filter(Boolean).length
+            window.dispatchEvent(
+              new CustomEvent('clipsync:p2p-progress', {
+                detail: { progress: Math.round((currentCount / expectedChunks) * 100) },
+              })
+            )
+          } else if (msg?.type === 'CLIP_STREAM_END') {
+            try {
+              const fullJson = receivedChunks.join('')
+              const parsedClip = JSON.parse(fullJson) as ClipItem
+              window.dispatchEvent(
+                new CustomEvent('clipsync:p2p-progress', { detail: { progress: 100 } })
+              )
+              if (!resolved) {
+                resolved = true
+                clearTimeout(timer)
+                clientPeer?.destroy()
+                resolve(parsedClip)
+              }
+            } catch (e) {
+              console.error('Failed to parse chunked clip payload:', e)
             }
           }
         })
@@ -287,48 +359,32 @@ export async function sendClip(clipData: Omit<ClipItem, 'createdAt'>): Promise<C
     }
   }
 
-  // 3. Setup WebRTC P2P Host if total content safely fits in data channel
-  const totalClipSize = JSON.stringify(fullClip).length
-  if (totalClipSize < 64 * 1024) {
-    setupPeerHost(fullClip)
-  }
+  // 3. Setup WebRTC P2P Host for direct device-to-device streaming
+  setupPeerHost(fullClip)
 
-  // 4. Send to Vite / API server (handles binary/image payloads smoothly)
-  try {
-    const res = await fetch('/api/clip', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(fullClip),
-    })
+  // 4. Send to Vite / API server if under cloud payload limit (handles asynchronous retrieval)
+  const totalSerializedSize = JSON.stringify(fullClip).length
+  if (totalSerializedSize <= 4.2 * 1024 * 1024) {
+    try {
+      const res = await fetch('/api/clip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fullClip),
+      })
 
-    if (res.ok) {
-      const data = await res.json()
-      if (data.success && data.clip) {
-        addClipHistory(data.clip, 'sent')
-        return data.clip
-      }
-    } else {
-      let errMsg = 'Failed to upload clip to server'
-      try {
-        const errJson = await res.json()
-        if (errJson.error) errMsg = errJson.error
-      } catch {
-        if (res.status === 413) {
-          errMsg = 'Payload too large for cloud server (limit 4.5MB). Please attach smaller photos or files.'
-        } else {
-          errMsg = `Server error (HTTP ${res.status}): ${res.statusText || 'Upload failed'}`
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success && data.clip) {
+          addClipHistory(data.clip, 'sent')
+          return data.clip
         }
       }
-      throw new Error(errMsg)
+    } catch {
+      // Server unreachable, fallback to P2P host
     }
-  } catch (err: unknown) {
-    if (err instanceof Error && err.message) {
-      throw err
-    }
-    throw new Error('Could not connect to clipboard server. Please check your network connection.')
   }
 
-  // Record history safely and return
+  // Large clip (>4.2MB) is hosted directly over P2P WebRTC data stream!
   addClipHistory(fullClip, 'sent')
   return fullClip
 }

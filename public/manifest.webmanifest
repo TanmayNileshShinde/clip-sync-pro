@@ -1,0 +1,17 @@
+{
+  "name": "ClipSync Pro",
+  "short_name": "ClipSync",
+  "description": "Universal end-to-end encrypted cross-device clipboard & document suite",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
