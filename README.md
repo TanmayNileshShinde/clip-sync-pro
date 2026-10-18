@@ -2,7 +2,11 @@
 
 > High-performance, zero-friction universal cross-device clipboard, WebRTC streaming file transfer, and complete in-browser PDF & document powerhouse studio.
 
-[![React](https://img.shields.io/badge/React-19-61dafb?style=flat-square&logo=react)](https://react.dev/)
+<p align="left">
+  <a href="https://clip-sync-pro.vercel.app"><img src="https://img.shields.io/badge/Live_Demo-clip--sync--pro.vercel.app-0070F3?style=for-the-badge&logo=vercel&logoColor=white" alt="Live Demo" /></a>
+  <a href="https://github.com/TanmayNileshShinde/clip-sync-pro/stargazers"><img src="https://img.shields.io/github/stars/TanmayNileshShinde/clip-sync-pro?style=for-the-badge&logo=github&color=ffb86c" alt="Stars" /></a>
+  <a href="https://github.com/TanmayNileshShinde/clip-sync-pro/network/members"><img src="https://img.shields.io/github/forks/TanmayNileshShinde/clip-sync-pro?style=for-the-badge&logo=github&color=8be9fd" alt="Forks" /></a>
+</p>
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/Vite-8.x-646cff?style=flat-square&logo=vite)](https://vitejs.dev/)
 [![Vitest](https://img.shields.io/badge/Vitest-13_Passed-729B1B?style=flat-square&logo=vitest)](https://vitest.dev/)
