@@ -35,7 +35,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
   const handleDetectedPayload = useCallback((raw: string) => {
     let extractedCode = ''
 
-    // Check if raw is a URL with ?code=123456
+    // parse url
     try {
       const url = new URL(raw)
       const c = url.searchParams.get('code')
@@ -43,7 +43,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
         extractedCode = c
       }
     } catch {
-      // Not a full URL, check if pure 6 digits or contains 6 digits
+      // parse code
       const match = raw.match(/\b\d{6}\b/)
       if (match) {
         extractedCode = match[0]
@@ -83,7 +83,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
       }
       setIsScanning(true)
 
-      // Check if native BarcodeDetector API is supported
+      // barcode api
       const hasBarcodeDetector = 'BarcodeDetector' in window
       let barcodeDetector: any = null
       if (hasBarcodeDetector) {
@@ -94,7 +94,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
         }
       }
 
-      // Scanner poll loop
+      // scanner loop
       scanIntervalRef.current = window.setInterval(async () => {
         if (!videoRef.current || videoRef.current.readyState < 2) return
 
@@ -107,7 +107,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
             }
           }
         } catch {
-          // Scanner frame error ignored
+          // frame error
         }
       }, 250)
     } catch (err: unknown) {

@@ -60,7 +60,7 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
   const imageInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  // Show temporary feedback message
+  // show feedback
   const showFeedback = (text: string, type: 'success' | 'error' | 'info' = 'info') => {
     setFeedbackMessage({ text, type })
     setTimeout(() => {
@@ -68,7 +68,7 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
     }, 4000)
   }
 
-  // Process single or multiple Files (with auto-compression for mobile & camera photos)
+  // process files
   const processFiles = useCallback(async (files: FileList | File[]) => {
     const fileArray = Array.from(files)
     if (fileArray.length === 0) return
@@ -87,7 +87,7 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
           skippedCount++
         }
       } else {
-        // Non-image file: check maximum 3.5MB cloud limit
+        // file limit
         if (file.size > 3.5 * 1024 * 1024) {
           showFeedback(
             `"${file.name}" (${(file.size / (1024 * 1024)).toFixed(1)}MB) exceeds the 3.5MB cloud limit. Skipped.`,
@@ -130,7 +130,7 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
     setIsProcessingFiles(false)
   }, [])
 
-  // Process recorded Voice Memo from VoiceRecorderModal
+  // voice memo
   const handleVoiceRecorded = async (file: File) => {
     try {
       const dataUrl = await new Promise<string>((resolve, reject) => {
@@ -154,7 +154,7 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
     }
   }
 
-  // Listen for global Ctrl+V paste (allows pasting multiple screenshots/images anytime!)
+  // paste listener
   useEffect(() => {
     const handleGlobalPaste = (e: ClipboardEvent) => {
       const target = e.target as HTMLElement
@@ -183,7 +183,7 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
     return () => window.removeEventListener('paste', handleGlobalPaste)
   }, [processFiles])
 
-  // Listen for DocTools / external events to attach files or set text
+  // tool events
   useEffect(() => {
     const handleAttachFileEvent = (e: Event) => {
       const customEvent = e as CustomEvent<File>
@@ -207,7 +207,7 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
     }
   }, [processFiles])
 
-  // Read System Clipboard via Button
+  // read clipboard
   const handleReadClipboard = async () => {
     playClickSound()
     try {
@@ -246,7 +246,7 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
     }
   }
 
-  // Prettify JSON helper
+  // format json
   const handlePrettifyJSON = () => {
     playClickSound()
     try {
@@ -261,7 +261,7 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
     }
   }
 
-  // Clean trailing whitespace & excessive blank lines
+  // clean whitespace
   const handleCleanWhitespace = () => {
     playClickSound()
     if (!textContent.trim()) return
@@ -276,7 +276,7 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
     playSuccessSound()
   }
 
-  // Base64 toggle helper (auto encode or decode)
+  // toggle base64
   const handleToggleBase64 = () => {
     playClickSound()
     if (!textContent.trim()) return
@@ -291,7 +291,7 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
           playSuccessSound()
           return
         } catch {
-          // Fall through to encode
+          // fallback encode
         }
       }
       const encoded = btoa(unescape(encodeURIComponent(textContent)))
@@ -304,7 +304,7 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
     }
   }
 
-  // Case toggle helper (UPPERCASE <-> lowercase)
+  // toggle case
   const handleToggleCase = () => {
     playClickSound()
     if (!textContent.trim()) return
@@ -318,7 +318,7 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
     }
   }
 
-  // Remove individual attachment
+  // remove attachment
   const handleRemoveAttachment = (idOrIdx: string | number, e: React.MouseEvent) => {
     e.stopPropagation()
     playClickSound()
@@ -329,7 +329,7 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
     )
   }
 
-  // Clear all inputs
+  // clear inputs
   const handleClear = () => {
     playClickSound()
     setTextContent('')
@@ -340,7 +340,7 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
     if (imageInputRef.current) imageInputRef.current.value = ''
   }
 
-  // Handle Send Clip
+  // send clip
   const handleSend = async () => {
     if (!textContent.trim() && attachments.length === 0) {
       playErrorSound()
@@ -382,7 +382,7 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
       let contentToSend = textContent.trim()
       let attachmentsToSend: ClipAttachment[] | undefined = hasAttachments ? attachments : undefined
 
-      // If user enabled password encryption, encrypt text and all attachments together
+      // encrypt payload
       if (isEncrypted && password.trim()) {
         const payloadObject = {
           text: contentToSend,
@@ -419,7 +419,7 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
           colors: ['#eab308', '#38bdf8', '#4ade80', '#a855f7'],
         })
       } catch {
-        // Ignore confetti errors
+        // ignore error
       }
       onClipCreated(newClip)
     } catch (err: unknown) {
@@ -430,7 +430,7 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
     }
   }
 
-  // Keyboard shortcut: Ctrl+Enter to send
+  // send shortcut
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault()
@@ -438,7 +438,7 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
     }
   }
 
-  // Drag and Drop handlers (supports multiple files at once!)
+  // drag drop
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
     setIsDragging(true)
@@ -462,10 +462,10 @@ export const SendCard: React.FC<SendCardProps> = ({ onClipCreated }) => {
   const wordCount = textContent.trim() ? textContent.trim().split(/\s+/).length : 0
   const lineCount = textContent ? textContent.split('\n').length : 0
 
-  // Total attachment size
+  // total size
   const totalAttachmentBytes = attachments.reduce((acc, curr) => acc + (curr.size || 0), 0)
 
-  // Filter image attachments for Lightbox preview
+  // image preview
   const imageAttachments = attachments.filter((a) => a.mimeType.startsWith('image/'))
 
   return (

@@ -54,12 +54,12 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
 
   const filteredHistory = useMemo(() => {
     return history.filter((item) => {
-      // Filter by tab
+      // tab filter
       if (filter === 'sent' && item.direction !== 'sent') return false
       if (filter === 'received' && item.direction !== 'received') return false
       if (filter === 'starred' && !item.favorite) return false
 
-      // Filter by search query
+      // search filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase()
         const matchesCode = item.code.includes(q)
@@ -82,7 +82,7 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
       setCopiedId(item.id)
       setTimeout(() => setCopiedId(null), 1800)
     } catch {
-      // Fallback
+      // fallback
     }
   }
 
@@ -222,7 +222,7 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
                         try {
                           navigator.clipboard.writeText(item.code)
                         } catch {
-                          // Ignore
+                          // ignore error
                         }
                         playCopySound()
                         setCopiedId(`code_${item.id}`)

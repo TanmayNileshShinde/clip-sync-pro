@@ -51,7 +51,7 @@ function pruneMemoryClips() {
       memoryClips.delete(code)
     }
   }
-  // Cap max stored clips to 1,000 items with FIFO eviction
+  // fifo eviction
   if (memoryClips.size > 1000) {
     const keysToEvict = Array.from(memoryClips.keys()).slice(0, memoryClips.size - 800)
     for (const k of keysToEvict) {
@@ -68,7 +68,7 @@ async function saveToRedis(key: string, value: ClipPayload, ttlSeconds: number) 
   if (!redisUrl || !redisToken) return
   try {
     const serialized = JSON.stringify(value)
-    // Upstash REST API: POST /set/{key}?ex={seconds} with serialized string in body
+    // redis rest
     const res = await fetch(`${redisUrl}/set/${encodeURIComponent(key)}?ex=${ttlSeconds}`, {
       method: 'POST',
       headers: {
@@ -112,12 +112,12 @@ async function deleteFromRedis(key: string) {
       headers: { Authorization: `Bearer ${redisToken}` },
     })
   } catch {
-    // Ignore
+    // ignore error
   }
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Security and CORS headers
+  // cors headers
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
@@ -129,23 +129,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(204).end()
   }
 
-  // Run periodic maintenance
+  // maintenance run
   pruneMemoryClips()
 
-  // POST: Create a new clip
+  // create clip
   if (req.method === 'POST') {
     try {
       const data = (typeof req.body === 'string' ? JSON.parse(req.body) : req.body) as Partial<ClipPayload>
       let code = data.code?.trim() || ''
 
-      // Validate or generate random 6-digit numeric code
+      // validate code
       if (!code || !/^\d{6}$/.test(code)) {
         do {
           code = Math.floor(100000 + Math.random() * 900000).toString()
         } while (memoryClips.has(code))
       }
 
-      // Safe lifespan bounds: default 24h, min 1 min, max 7 days
+      // ttl bounds
       const maxExpiry = Date.now() + 7 * 24 * 60 * 60 * 1000
       const minExpiry = Date.now() + 60 * 1000
       const requestedExpiry = Number(data.expiresAt) || (Date.now() + 24 * 60 * 60 * 1000)
@@ -167,10 +167,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         createdAt: Date.now(),
       }
 
-      // 1. Save in serverless memory
+      // memory save
       memoryClips.set(code, clip)
 
-      // 2. Save in Vercel KV / Upstash Redis if configured
+      // redis save
       const ttlSec = Math.max(60, Math.floor((expiresAt - Date.now()) / 1000))
       await saveToRedis(`clip:${code}`, clip, ttlSec)
 
@@ -180,7 +180,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  // Extract code from query or URL
+  // extract code
   let codeParam = (req.query.code as string)?.trim() || ''
   if (!codeParam && req.url) {
     const pathPart = req.url.split('?')[0].replace('/api/clip/', '').replace('/api/clip', '').trim()
@@ -189,16 +189,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  // GET: Retrieve clip by code
+  // get clip
   if (req.method === 'GET') {
     if (!codeParam || !/^\d{6}$/.test(codeParam)) {
       return res.status(400).json({ success: false, error: 'Please provide a valid 6-digit numeric code' })
     }
 
-    // 1. Try serverless memory
+    // memory fetch
     let clip = memoryClips.get(codeParam) || null
 
-    // 2. Try Redis / KV if not in memory
+    // redis fetch
     if (!clip) {
       clip = await getFromRedis(`clip:${codeParam}`)
     }
@@ -213,7 +213,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(404).json({ success: false, error: 'Clip has expired' })
     }
 
-    // Handle burn after read
+    // burn clip
     if (clip.burnAfterRead) {
       memoryClips.delete(codeParam)
       await deleteFromRedis(`clip:${codeParam}`)
@@ -222,7 +222,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ success: true, clip })
   }
 
-  // DELETE: Remove clip
+  // remove clip
   if (req.method === 'DELETE') {
     if (codeParam && /^\d{6}$/.test(codeParam)) {
       memoryClips.delete(codeParam)

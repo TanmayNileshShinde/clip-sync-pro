@@ -12,7 +12,7 @@ import { isSoundEnabled, setSoundEnabled as persistSoundEnabled } from './utils/
 import { Sparkles, ArrowUpRight, ArrowDownLeft } from 'lucide-react'
 
 export function App() {
-  // Theme state
+  // theme state
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     if (typeof localStorage !== 'undefined') {
       const saved = localStorage.getItem('clipsync_theme')
@@ -21,10 +21,10 @@ export function App() {
     return true // Default dark mode for rich vibrant aesthetics
   })
 
-  // Sound state
+  // sound state
   const [soundEnabled, setSoundEnabled] = useState<boolean>(isSoundEnabled)
 
-  // Active view tab (auto-switches to retrieve if code in URL)
+  // active tab
   const [activeTab, setActiveTab] = useState<'send' | 'retrieve'>(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search)
@@ -34,17 +34,17 @@ export function App() {
     return 'send'
   })
 
-  // History state directly initialized from localStorage
+  // history state
   const [history, setHistory] = useState<HistoryItem[]>(() => getClipHistory())
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
 
-  // DevTools modal state
+  // modal state
   const [isToolsOpen, setIsToolsOpen] = useState(false)
 
-  // Sent Clip Success modal
+  // success modal
   const [createdClip, setCreatedClip] = useState<ClipItem | null>(null)
 
-  // Retrieval code state for passing to RetrieveCard
+  // retrieval code
   const [retrieveCode, setRetrieveCode] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search)
@@ -55,10 +55,10 @@ export function App() {
   })
   const [retrieveKey, setRetrieveKey] = useState<number>(0)
 
-  // Toast notification
+  // toast state
   const [toastMessage, setToastMessage] = useState<string | null>(null)
 
-  // Show quick toast
+  // trigger toast
   const showToast = (msg: string) => {
     setToastMessage(msg)
     setTimeout(() => {
@@ -66,18 +66,18 @@ export function App() {
     }, 3500)
   }
 
-  // Apply Theme to document root
+  // apply theme
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light')
     localStorage.setItem('clipsync_theme', darkMode ? 'dark' : 'light')
   }, [darkMode])
 
-  // Sync sound settings
+  // sound sync
   useEffect(() => {
     persistSoundEnabled(soundEnabled)
   }, [soundEnabled])
 
-  // Subscribe to Cross-Tab BroadcastChannel
+  // broadcast channel
   useEffect(() => {
     const unsubscribe = subscribeToCrossTabClips((clip) => {
       setHistory(getClipHistory())
@@ -86,7 +86,7 @@ export function App() {
     return () => unsubscribe()
   }, [])
 
-  // Global Keyboard Shortcuts
+  // keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -99,13 +99,13 @@ export function App() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
-  // Handler when clip is created
+  // clip created
   const handleClipCreated = (clip: ClipItem) => {
     setCreatedClip(clip)
     setHistory(getClipHistory())
   }
 
-  // Handle selecting a code from History or Success Modal
+  // select code
   const handleSelectCode = (code: string) => {
     setRetrieveCode(code)
     setRetrieveKey((k) => k + 1)
@@ -116,15 +116,15 @@ export function App() {
     }, 50)
   }
 
-  // Send content from DevTools directly into editor
+  // insert content
   const handleSendFromTools = (text: string) => {
     setActiveTab('send')
-    // A slight delay ensures component is rendered
+    // render delay
     setTimeout(() => {
       const textarea = document.querySelector('.main-textarea') as HTMLTextAreaElement | null
       if (textarea) {
         textarea.value = text
-        // Trigger React change event
+        // trigger change
         const event = new Event('input', { bubbles: true })
         textarea.dispatchEvent(event)
         textarea.focus()
@@ -133,7 +133,7 @@ export function App() {
     showToast('Sent document content to clip editor!')
   }
 
-  // Send converted file directly into editor
+  // insert file
   const handleSendFileFromTools = (file: File) => {
     setActiveTab('send')
     window.dispatchEvent(new CustomEvent('clipsync:attach-file', { detail: file }))

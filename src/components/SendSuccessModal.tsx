@@ -35,7 +35,7 @@ export const SendSuccessModal: React.FC<SendSuccessModalProps> = ({
     ? `${window.location.origin}/?code=${clip.code}`
     : ''
 
-  // Trigger celebratory confetti on open
+  // launch confetti
   useEffect(() => {
     if (clip) {
       try {
@@ -46,12 +46,12 @@ export const SendSuccessModal: React.FC<SendSuccessModalProps> = ({
           colors: ['#facc15', '#eab308', '#ca8a04', '#71717a', '#ffffff'],
         })
       } catch {
-        // Ignore
+        // ignore error
       }
     }
   }, [clip])
 
-  // Generate QR Code on canvas
+  // generate qr
   useEffect(() => {
     if (clip && canvasRef.current && shareUrl) {
       QRCode.toCanvas(canvasRef.current, shareUrl, {
@@ -62,7 +62,7 @@ export const SendSuccessModal: React.FC<SendSuccessModalProps> = ({
           light: '#ffffff',
         },
       }).catch(() => {
-        // Ignore QR generation failure
+        // ignore error QR generation failure
       })
     }
   }, [clip, shareUrl])
@@ -76,7 +76,7 @@ export const SendSuccessModal: React.FC<SendSuccessModalProps> = ({
       setCopiedCode(true)
       setTimeout(() => setCopiedCode(false), 2000)
     } catch {
-      // Fallback
+      // fallback
     }
   }
 
@@ -87,7 +87,7 @@ export const SendSuccessModal: React.FC<SendSuccessModalProps> = ({
       setCopiedLink(true)
       setTimeout(() => setCopiedLink(false), 2000)
     } catch {
-      // Fallback
+      // fallback
     }
   }
 
@@ -115,7 +115,7 @@ export const SendSuccessModal: React.FC<SendSuccessModalProps> = ({
           url: shareUrl,
         })
       } catch {
-        // User cancelled or share dismissed
+        // share dismissed
       }
     }
   }

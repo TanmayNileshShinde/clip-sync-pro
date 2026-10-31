@@ -26,7 +26,7 @@ export const VoiceRecorderModal: React.FC<VoiceRecorderModalProps> = ({
   const timerRef = useRef<number | null>(null)
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null)
 
-  // Web Audio Visualizer
+  // audio visualizer
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animationFrameRef = useRef<number | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
@@ -70,7 +70,7 @@ export const VoiceRecorderModal: React.FC<VoiceRecorderModalProps> = ({
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
 
-      // Setup Web Audio Analyser
+      // audio analyser
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
       const audioCtx = new AudioCtx()
       audioContextRef.current = audioCtx
@@ -80,7 +80,7 @@ export const VoiceRecorderModal: React.FC<VoiceRecorderModalProps> = ({
       analyser.fftSize = 64
       source.connect(analyser)
 
-      // Start Visualizer Loop
+      // draw loop
       const bufferLength = analyser.frequencyBinCount
       const dataArray = new Uint8Array(bufferLength)
 
@@ -98,7 +98,7 @@ export const VoiceRecorderModal: React.FC<VoiceRecorderModalProps> = ({
 
         for (let i = 0; i < bufferLength; i++) {
           const barHeight = (dataArray[i] / 255) * canvas.height * 0.85
-          // Gradient styling
+          // canvas gradient
           ctx.fillStyle = `hsl(${45 + (dataArray[i] / 255) * 60}, 95%, 55%)`
           ctx.beginPath()
           ctx.roundRect(x, (canvas.height - barHeight) / 2, barWidth - 2, barHeight + 4, 3)
@@ -110,7 +110,7 @@ export const VoiceRecorderModal: React.FC<VoiceRecorderModalProps> = ({
       }
       drawWaveform()
 
-      // Determine supported mime type
+      // mime type
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? 'audio/webm;codecs=opus'
         : MediaRecorder.isTypeSupported('audio/mp4')
@@ -138,7 +138,7 @@ export const VoiceRecorderModal: React.FC<VoiceRecorderModalProps> = ({
       setIsRecording(true)
       playClickSound()
 
-      // Duration counter
+      // timer interval
       timerRef.current = window.setInterval(() => {
         setRecordingDuration((sec) => sec + 1)
       }, 1000)

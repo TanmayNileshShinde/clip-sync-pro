@@ -58,7 +58,7 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
   const [p2pProgress, setP2pProgress] = useState<number | null>(null)
   const [showLineNumbers, setShowLineNumbers] = useState(true)
 
-  // Subscribe to P2P streaming progress events
+  // stream progress
   useEffect(() => {
     const handleP2p = (e: Event) => {
       const customEvent = e as CustomEvent<{ progress: number }>
@@ -70,18 +70,18 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
     return () => window.removeEventListener('clipsync:p2p-progress', handleP2p)
   }, [])
 
-  // Password / PIN unlock modal state
+  // pin modal
   const [requiresPassword, setRequiresPassword] = useState(false)
   const [passwordInput, setPasswordInput] = useState('')
   const [passwordError, setPasswordError] = useState<string | null>(null)
 
-  // Copy feedback
+  // copy status
   const [copiedText, setCopiedText] = useState(false)
   const [copiedImageId, setCopiedImageId] = useState<string | null>(null)
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
 
-  // Helper to dynamically convert any received HEIC attachments to JPEG so they preview on all browsers
+  // convert heic
   const normalizeAttachments = useCallback(async (items: ClipAttachment[]) => {
     const hasHeic = items.some((item) => isHeicFormat(item.name, item.mimeType, item.content))
     if (!hasHeic) return items
@@ -109,7 +109,7 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
     return updated
   }, [])
 
-  // Function to perform retrieval with code string
+  // fetch clip
   const executeRetrieve = useCallback(async (code: string) => {
     if (code.length !== 6 || isNaN(Number(code))) {
       setErrorMsg('Please enter a complete 6-digit numeric code')
@@ -129,7 +129,7 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
       const clip = await retrieveClip(code)
       setRetrievedClip(clip)
 
-      // Check if clip is encrypted
+      // check encryption
       if (clip.isEncrypted || isEncryptedPayload(clip.content)) {
         setRequiresPassword(true)
         playClickSound()
@@ -153,7 +153,7 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
             colors: ['#eab308', '#38bdf8', '#4ade80', '#a855f7'],
           })
         } catch {
-          // Ignore
+          // ignore error
         }
       }
     } catch (err: unknown) {
@@ -164,7 +164,7 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
     }
   }, [normalizeAttachments])
 
-  // Auto-fetch if digits complete
+  // auto fetch
   useEffect(() => {
     const code = digits.join('')
     if (code.length === 6 && !digits.includes('')) {
@@ -175,7 +175,7 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
     }
   }, [digits, executeRetrieve])
 
-  // Auto-fill and execute immediately whenever initialCode prop changes
+  // sync code
   useEffect(() => {
     const clean = initialCode.trim()
     if (clean.length === 6 && !isNaN(Number(clean))) {
@@ -187,7 +187,7 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
     }
   }, [initialCode, executeRetrieve])
 
-  // Global event listener for loading code dynamically from History
+  // history listener
   useEffect(() => {
     const handleLoadCode = (e: Event) => {
       const customEvent = e as CustomEvent<string>
@@ -201,7 +201,7 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
     return () => window.removeEventListener('clipsync:load-code', handleLoadCode)
   }, [executeRetrieve])
 
-  // Handle Digit Change
+  // digit input
   const handleDigitChange = (index: number, val: string) => {
     if (val.length > 1) {
       const cleaned = val.replace(/\D/g, '').slice(0, 6)
@@ -235,14 +235,14 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
     }
   }
 
-  // Handle Backspace navigation
+  // backspace nav
   const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Backspace' && !digits[index] && index > 0) {
       inputRefs.current[index - 1]?.focus()
     }
   }
 
-  // Paste 6-digit code directly from clipboard
+  // paste code
   const handlePasteCode = async () => {
     playClickSound()
     try {
@@ -264,11 +264,11 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
         }
       }
     } catch {
-      // Clipboard read access denied or unsupported
+      // clipboard fallback
     }
   }
 
-  // Decrypt with user password
+  // decrypt payload
   const handleDecrypt = async () => {
     if (!passwordInput.trim()) {
       setPasswordError('Please enter the password')
@@ -281,7 +281,7 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
     try {
       const plaintext = await decryptPayload(retrievedClip.content, passwordInput.trim())
 
-      // Check if decrypted payload is structured JSON (text + attachments)
+      // parse json
       try {
         const parsed = JSON.parse(plaintext)
         let list: ClipAttachment[] = []
@@ -318,7 +318,7 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
     }
   }
 
-  // Copy text to clipboard
+  // copy text
   const handleCopyText = async () => {
     if (!retrievedText) return
     playCopySound()
@@ -327,11 +327,11 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
       setCopiedText(true)
       setTimeout(() => setCopiedText(false), 2000)
     } catch {
-      // Fallback
+      // fallback
     }
   }
 
-  // Copy Image to clipboard
+  // copy image
   const handleCopyImage = async (item: ClipAttachment, idOrIdx: string) => {
     if (!item?.content) return
     playCopySound()
@@ -350,11 +350,11 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
         setTimeout(() => setCopiedImageId(null), 2000)
       }
     } catch {
-      // Fallback
+      // fallback
     }
   }
 
-  // Download Attachment
+  // download file
   const handleDownloadAttachment = (item: ClipAttachment) => {
     if (!item?.content) return
     playClickSound()
@@ -366,7 +366,7 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
     document.body.removeChild(link)
   }
 
-  // Download All Attachments
+  // download all
   const handleDownloadAll = () => {
     playClickSound()
     retrievedAttachments.forEach((item, i) => {
@@ -376,7 +376,7 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
     })
   }
 
-  // Download Text as .txt
+  // export txt
   const handleDownloadText = () => {
     if (!retrievedText) return
     playClickSound()
@@ -389,7 +389,7 @@ export const RetrieveCard: React.FC<RetrieveCardProps> = ({ initialCode = '' }) 
     document.body.removeChild(link)
   }
 
-  // Clear / Reset
+  // reset state
   const handleReset = () => {
     playClickSound()
     setDigits(['', '', '', '', '', ''])

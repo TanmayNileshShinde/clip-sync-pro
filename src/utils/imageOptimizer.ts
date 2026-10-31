@@ -83,7 +83,7 @@ export async function optimizeImageAttachment(file: File): Promise<ClipAttachmen
   const isSvg = file.type === 'image/svg+xml' || lowerName.endsWith('.svg')
   const isGif = file.type === 'image/gif' || lowerName.endsWith('.gif')
 
-  // SVGs and small animated GIFs under 2MB should not be rasterized
+  // skip rasterize
   if (isSvg || (isGif && file.size < 2 * 1024 * 1024)) {
     const dataUrl = await readFileAsDataUrl(file)
     return {
@@ -97,7 +97,7 @@ export async function optimizeImageAttachment(file: File): Promise<ClipAttachmen
 
   let workingFile = file
 
-  // 1. Convert HEIC/HEIF (iOS photos) into standard JPEG Blob first
+  // convert heic
   if (isHeicFormat(file.name, file.type)) {
     try {
       const heic2anyModule = await import('heic2any')
@@ -114,11 +114,11 @@ export async function optimizeImageAttachment(file: File): Promise<ClipAttachmen
       })
     } catch (err) {
       console.warn('HEIC to JPEG conversion warning:', err)
-      // Continue with workingFile, will fallback if canvas fails
+      // file fallback
     }
   }
 
-  // 2. Client-side canvas resize & compression
+  // compress canvas
   try {
     const objectUrl = URL.createObjectURL(workingFile)
     const img = new Image()
@@ -152,20 +152,20 @@ export async function optimizeImageAttachment(file: File): Promise<ClipAttachmen
       throw new Error('Canvas 2D context not available')
     }
 
-    // High quality rendering
+    // render quality
     ctx.imageSmoothingEnabled = true
     ctx.imageSmoothingQuality = 'high'
     ctx.drawImage(img, 0, 0, width, height)
 
-    // Export as clean, universal JPEG
+    // export jpeg
     const dataUrl = canvas.toDataURL('image/jpeg', COMPRESSION_QUALITY)
     URL.revokeObjectURL(objectUrl)
 
-    // Calculate approximate byte size from base64 length
+    // approx size
     const base64Length = dataUrl.length - dataUrl.indexOf(',') - 1
     const approxBytes = Math.round((base64Length * 3) / 4)
 
-    // Normalize filename to .jpg
+    // normalize extension
     const baseName = workingFile.name.replace(/\.[^/.]+$/, '')
     const safeName = `${baseName || 'photo'}.jpg`
 
@@ -177,7 +177,7 @@ export async function optimizeImageAttachment(file: File): Promise<ClipAttachmen
       mimeType: 'image/jpeg',
     }
   } catch {
-    // Fallback to direct DataURL if canvas processing fails
+    // dataurl fallback
     const fallbackDataUrl = await readFileAsDataUrl(workingFile)
     const baseName = workingFile.name.replace(/\.[^/.]+$/, '')
     return {

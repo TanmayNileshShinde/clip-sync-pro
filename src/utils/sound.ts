@@ -35,7 +35,7 @@ export function playSuccessSound() {
     if (!ctx) return
     const now = ctx.currentTime
 
-    // First note
+    // first note
     const osc1 = ctx.createOscillator()
     const gain1 = ctx.createGain()
     osc1.type = 'sine'
@@ -47,7 +47,7 @@ export function playSuccessSound() {
     osc1.start(now)
     osc1.stop(now + 0.28)
 
-    // Second note
+    // second note
     const osc2 = ctx.createOscillator()
     const gain2 = ctx.createGain()
     osc2.type = 'sine'
@@ -59,7 +59,7 @@ export function playSuccessSound() {
     osc2.start(now + 0.1)
     osc2.stop(now + 0.45)
   } catch {
-    // Ignore audio context errors
+    // audio error
   }
 }
 
@@ -82,7 +82,7 @@ export function playCopySound() {
     osc.start(now)
     osc.stop(now + 0.15)
   } catch {
-    // Ignore
+    // ignore error
   }
 }
 
@@ -105,7 +105,7 @@ export function playClickSound() {
     osc.start(now)
     osc.stop(now + 0.06)
   } catch {
-    // Ignore
+    // ignore error
   }
 }
 
@@ -128,6 +128,6 @@ export function playErrorSound() {
     osc.start(now)
     osc.stop(now + 0.2)
   } catch {
-    // Ignore
+    // ignore error
   }
 }

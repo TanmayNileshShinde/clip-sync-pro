@@ -30,13 +30,13 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
   const [currentIndex, setCurrentIndex] = useState(initialIndex)
   const [prevInitialIndex, setPrevInitialIndex] = useState(initialIndex)
 
-  // Adjust state during render when initialIndex prop changes
+  // sync index
   if (prevInitialIndex !== initialIndex) {
     setPrevInitialIndex(initialIndex)
     setCurrentIndex(initialIndex)
   }
 
-  // Determine active item
+  // active item
   const activeList: LightboxImage[] = images && images.length > 0
     ? images
     : imageUrl

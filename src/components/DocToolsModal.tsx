@@ -74,42 +74,42 @@ export const DocToolsModal: React.FC<DocToolsModalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
 
-  // 1. Image to PDF State
+  // image pdf
   const [imagesList, setImagesList] = useState<ImageFileItem[]>([])
   const [imgPageSize, setImgPageSize] = useState<'a4' | 'fit' | 'letter'>('a4')
   const [imgMargin, setImgMargin] = useState<number>(20)
   const imageInputRef = useRef<HTMLInputElement>(null)
 
-  // 2. Merge PDF State
+  // merge pdf
   const [mergePdfList, setMergePdfList] = useState<MergePdfItem[]>([])
   const mergeInputRef = useRef<HTMLInputElement>(null)
 
-  // 3. Split PDF State
+  // split pdf
   const [splitFile, setSplitFile] = useState<File | null>(null)
   const [splitTotalPages, setSplitTotalPages] = useState<number>(0)
   const [splitPageRange, setSplitPageRange] = useState<string>('1-2')
   const splitInputRef = useRef<HTMLInputElement>(null)
 
-  // 4. Rotate PDF State
+  // rotate pdf
   const [rotateFile, setRotateFile] = useState<File | null>(null)
   const [rotateTotalPages, setRotateTotalPages] = useState<number>(0)
   const [rotateDegrees, setRotateDegrees] = useState<number>(90)
   const [rotateTargetPages, setRotateTargetPages] = useState<string>('')
   const rotateInputRef = useRef<HTMLInputElement>(null)
 
-  // 5. PDF to Images State
+  // pdf images
   const [pdfToImgFile, setPdfToImgFile] = useState<File | null>(null)
   const [renderedPages, setRenderedPages] = useState<
     { pageNum: number; dataUrl: string; width: number; height: number }[]
   >([])
   const pdfToImgInputRef = useRef<HTMLInputElement>(null)
 
-  // 6. Word (.docx) Converter State
+  // docx converter
   const [docxFile, setDocxFile] = useState<File | null>(null)
   const [docxExtractedText, setDocxExtractedText] = useState<string>('')
   const docxInputRef = useRef<HTMLInputElement>(null)
 
-  // 7. Text to PDF State
+  // text pdf
   const [textDocTitle, setTextDocTitle] = useState('Document_Export')
   const [textDocBody, setTextDocBody] = useState('')
 
@@ -149,9 +149,7 @@ export const DocToolsModal: React.FC<DocToolsModalProps> = ({
     setTimeout(() => onClose(), 1200)
   }
 
-  // ----------------------------------------------------
-  // TOOL 1: Image to PDF Handlers
-  // ----------------------------------------------------
+  // img handlers
   const handleImagesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files || files.length === 0) return
@@ -234,9 +232,7 @@ export const DocToolsModal: React.FC<DocToolsModalProps> = ({
     }
   }
 
-  // ----------------------------------------------------
-  // TOOL 2: Merge PDF Handlers
-  // ----------------------------------------------------
+  // merge handlers
   const handleMergePdfUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files || files.length === 0) return
@@ -306,9 +302,7 @@ export const DocToolsModal: React.FC<DocToolsModalProps> = ({
     }
   }
 
-  // ----------------------------------------------------
-  // TOOL 3: Split PDF Handlers
-  // ----------------------------------------------------
+  // split handlers
   const handleSplitPdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -362,9 +356,7 @@ export const DocToolsModal: React.FC<DocToolsModalProps> = ({
     }
   }
 
-  // ----------------------------------------------------
-  // TOOL 4: Rotate PDF Handlers
-  // ----------------------------------------------------
+  // rotate handlers
   const handleRotatePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -422,9 +414,7 @@ export const DocToolsModal: React.FC<DocToolsModalProps> = ({
     }
   }
 
-  // ----------------------------------------------------
-  // TOOL 5: PDF to Images Handlers
-  // ----------------------------------------------------
+  // export handlers
   const handlePdfToImgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -468,9 +458,7 @@ export const DocToolsModal: React.FC<DocToolsModalProps> = ({
     sendFileToClipSync(file)
   }
 
-  // ----------------------------------------------------
-  // TOOL 6: Word (.docx) Converter Handlers
-  // ----------------------------------------------------
+  // docx handlers
   const handleDocxUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -522,9 +510,7 @@ export const DocToolsModal: React.FC<DocToolsModalProps> = ({
     }
   }
 
-  // ----------------------------------------------------
-  // TOOL 7: Text to PDF Handlers
-  // ----------------------------------------------------
+  // txt handlers
   const handleConvertTextToPdf = async (shouldSendToClip = false) => {
     if (!textDocBody.trim()) {
       showError('Please enter some text or notes.')

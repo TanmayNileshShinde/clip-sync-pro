@@ -31,7 +31,7 @@ function getLocalClips(): Record<string, ClipItem> {
 
 function saveLocalClip(clip: ClipItem) {
   if (typeof localStorage === 'undefined') return
-  // Don't save large binary/image payloads to localStorage (they live on the server & in memory)
+  // storage guard
   const totalAttachmentBytes =
     (clip.attachments?.reduce((acc, a) => acc + (a.content?.length || a.size || 0), 0) || 0) +
     (clip.attachment?.content?.length || clip.attachment?.size || 0)
@@ -42,11 +42,11 @@ function saveLocalClip(clip: ClipItem) {
     clips[clip.code] = clip
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(clips))
   } catch {
-    // Quota exceeded: clear non-essential cache
+    // quota prune
     try {
       localStorage.removeItem(LOCAL_STORAGE_KEY)
     } catch {
-      // Ignore
+      // ignore error
     }
   }
 }
@@ -58,7 +58,7 @@ function removeLocalClip(code: string) {
     delete clips[code]
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(clips))
   } catch {
-    // Ignore
+    // ignore error
   }
 }
 
@@ -92,7 +92,7 @@ export function addClipHistory(
     preview = primaryName || 'File attachment'
   }
 
-  // Create lightweight copy of clipData without giant base64 payloads to protect quota
+  // trim history
   const safeClipData: ClipItem = {
     ...clip,
     content: clip.content.length > 50000 ? '' : clip.content,
@@ -116,7 +116,7 @@ export function addClipHistory(
     clipData: safeClipData,
   }
 
-  // Deduplicate by code and prepend
+  // deduplicate history
   const history = getClipHistory()
   const filtered = history.filter((h) => h.code !== clip.code)
   const updated = [newItem, ...filtered].slice(0, 50)
@@ -124,12 +124,12 @@ export function addClipHistory(
   try {
     localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(updated))
   } catch {
-    // Storage might be full, trim down aggressively
+    // storage recovery
     try {
       const trimmed = updated.slice(0, 10).map((h) => ({ ...h, clipData: undefined }))
       localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(trimmed))
     } catch {
-      // Ignore quota error so user flow is never blocked
+      // ignore error quota error so user flow is never blocked
     }
   }
 
@@ -146,7 +146,7 @@ export function toggleFavoriteHistory(id: string): HistoryItem[] {
   try {
     localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history))
   } catch {
-    // Ignore
+    // ignore error
   }
   return history
 }
@@ -156,7 +156,7 @@ export function removeHistoryItem(id: string): HistoryItem[] {
   try {
     localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history))
   } catch {
-    // Ignore
+    // ignore error
   }
   return history
 }
@@ -165,7 +165,7 @@ export function clearAllHistory(): void {
   try {
     localStorage.removeItem(HISTORY_STORAGE_KEY)
   } catch {
-    // Ignore
+    // ignore error
   }
 }
 
@@ -186,7 +186,7 @@ function sendDataChunked(conn: any, clip: ClipItem) {
       return
     }
 
-    // Step 1: Send Header
+    // send header
     conn.send({
       type: 'CLIP_STREAM_START',
       totalChunks,
@@ -194,7 +194,7 @@ function sendDataChunked(conn: any, clip: ClipItem) {
       code: clip.code,
     })
 
-    // Step 2: Stream Chunks with backpressure pacing
+    // stream chunks
     let chunkIdx = 0
     const streamNextBatch = () => {
       for (let i = 0; i < 4 && chunkIdx < totalChunks; i++, chunkIdx++) {
@@ -243,10 +243,10 @@ function setupPeerHost(clip: ClipItem) {
     })
 
     hostPeer.on('error', () => {
-      // Peer ID collision or network fallback
+      // peer collision
     })
   } catch {
-    // Ignore P2P setup errors in restricted network
+    // ignore error P2P setup errors in restricted network
   }
 }
 
@@ -339,13 +339,13 @@ export async function sendClip(clipData: Omit<ClipItem, 'createdAt'>): Promise<C
     createdAt: Date.now(),
   }
 
-  // 1. Save to Local Storage if reasonably small
+  // local save
   saveLocalClip(fullClip)
 
-  // 2. Broadcast across tabs
+  // cross broadcast
   if (broadcastChannel) {
     try {
-      // If content is very large, broadcast metadata only to prevent browser structured clone buffer errors
+      // meta broadcast
       if (fullClip.content.length < 500 * 1024) {
         broadcastChannel.postMessage({ type: 'NEW_CLIP', clip: fullClip })
       } else {
@@ -355,14 +355,14 @@ export async function sendClip(clipData: Omit<ClipItem, 'createdAt'>): Promise<C
         })
       }
     } catch {
-      // Ignore
+      // ignore error
     }
   }
 
-  // 3. Setup WebRTC P2P Host for direct device-to-device streaming
+  // host p2p
   setupPeerHost(fullClip)
 
-  // 4. Send to Vite / API server if under cloud payload limit (handles asynchronous retrieval)
+  // cloud upload
   const totalSerializedSize = JSON.stringify(fullClip).length
   if (totalSerializedSize <= 4.2 * 1024 * 1024) {
     try {
@@ -380,11 +380,11 @@ export async function sendClip(clipData: Omit<ClipItem, 'createdAt'>): Promise<C
         }
       }
     } catch {
-      // Server unreachable, fallback to P2P host
+      // p2p fallback
     }
   }
 
-  // Large clip (>4.2MB) is hosted directly over P2P WebRTC data stream!
+  // large payload
   addClipHistory(fullClip, 'sent')
   return fullClip
 }
@@ -396,7 +396,7 @@ export async function retrieveClip(code: string): Promise<ClipItem> {
     throw new Error('Please enter a valid 6-digit code')
   }
 
-  // 1. Check LocalStorage cache first (sub-millisecond instant retrieval for local & history clips)
+  // local lookup
   const localClips = getLocalClips()
   const localClip = localClips[cleanCode]
   if (localClip) {
@@ -407,14 +407,14 @@ export async function retrieveClip(code: string): Promise<ClipItem> {
     }
   }
 
-  // 2. Check History Cache (ensures clicking any item from History always opens smoothly)
+  // history lookup
   const history = getClipHistory()
   const historyItem = history.find((h) => h.code === cleanCode)
   if (historyItem) {
     if (historyItem.clipData && (!historyItem.clipData.expiresAt || historyItem.clipData.expiresAt > Date.now())) {
       return historyItem.clipData
     }
-    // Reconstruct clip from history metadata if full clipData was trimmed for storage quota
+    // restore meta
     if (historyItem.preview || historyItem.name) {
       const reconstructed: ClipItem = {
         code: historyItem.code,
@@ -433,7 +433,7 @@ export async function retrieveClip(code: string): Promise<ClipItem> {
     }
   }
 
-  // 3. Try Server API (cloud synced clips from other devices)
+  // cloud fetch
   try {
     const res = await fetch(`/api/clip/${cleanCode}`)
     if (res.ok) {
@@ -445,10 +445,10 @@ export async function retrieveClip(code: string): Promise<ClipItem> {
       }
     }
   } catch {
-    // Fall through to peer
+    // peer fallback
   }
 
-  // 4. Try WebRTC P2P direct data channel
+  // p2p direct
   try {
     const p2pClip = await fetchViaPeer(cleanCode, 1500)
     if (p2pClip) {
@@ -457,7 +457,7 @@ export async function retrieveClip(code: string): Promise<ClipItem> {
       return p2pClip
     }
   } catch {
-    // Fall through
+    // fall through
   }
 
   throw new Error('No active clip found for code: ' + cleanCode)

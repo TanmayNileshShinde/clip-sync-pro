@@ -26,7 +26,7 @@ export async function createPdfFromText(
   const fontSize = 11
   const lineHeight = 16
 
-  // Helper function to wrap text within width
+  // wrap text
   const wrapText = (str: string, width: number, f: typeof font, size: number) => {
     const words = str.split(/\s+/)
     const wrappedLines: string[] = []
@@ -51,7 +51,7 @@ export async function createPdfFromText(
   let currentPage = pdfDoc.addPage([pageWidth, pageHeight])
   let cursorY = pageHeight - margin
 
-  // Draw title
+  // draw title
   currentPage.drawText(title, {
     x: margin,
     y: cursorY - 14,
@@ -61,7 +61,7 @@ export async function createPdfFromText(
   })
   cursorY -= 36
 
-  // Split input into lines
+  // split lines
   const rawLines = text.split('\n')
   for (const rawLine of rawLines) {
     if (!rawLine.trim()) {
@@ -77,7 +77,7 @@ export async function createPdfFromText(
 
     for (const wLine of wrapped) {
       if (cursorY - lineHeight < margin) {
-        // Need new page
+        // page break
         currentPage = pdfDoc.addPage([pageWidth, pageHeight])
         cursorY = pageHeight - margin
       }
@@ -122,7 +122,7 @@ export async function createPdfFromImages(
       try {
         embeddedImage = await pdfDoc.embedPng(arrayBuffer)
       } catch {
-        // Fallback to jpg if png decode fails
+        // format fallback
         embeddedImage = await pdfDoc.embedJpg(arrayBuffer)
       }
     } else {
@@ -144,7 +144,7 @@ export async function createPdfFromImages(
         height: imgHeight,
       })
     } else {
-      // Standard A4: 595.28 x 841.89
+      // a4 dimensions
       const pageWidth = options.pageSize === 'letter' ? 612 : 595.28
       const pageHeight = options.pageSize === 'letter' ? 792 : 841.89
       const margin = options.margin
@@ -152,7 +152,7 @@ export async function createPdfFromImages(
       const availableWidth = pageWidth - margin * 2
       const availableHeight = pageHeight - margin * 2
 
-      // Scale to fit available dimensions preserving aspect ratio
+      // scale aspect
       const widthRatio = availableWidth / imgWidth
       const heightRatio = availableHeight / imgHeight
       const scale = Math.min(widthRatio, heightRatio, 1)
@@ -210,7 +210,7 @@ export async function splitPdf(file: File, pageRangesStr: string): Promise<Blob>
   const srcDoc = await PDFDocument.load(arrayBuffer)
   const totalPages = srcDoc.getPageCount()
 
-  // Parse page range string (1-indexed)
+  // parse ranges
   const targetIndices: number[] = []
   const parts = pageRangesStr.split(',').map((p) => p.trim()).filter(Boolean)
 

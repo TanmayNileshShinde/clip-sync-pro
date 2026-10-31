@@ -1,6 +1,6 @@
-// Browser Native SubtleCrypto AES-GCM 256 End-to-End Encryption
-// Optimized with chunking for large files & images (up to 50MB+)
-// Universal support for Browser window.crypto and Node/Worker globalThis.crypto
+// e2e cipher
+// chunked streaming
+// universal crypto
 
 function getCrypto(): Crypto {
   if (typeof globalThis !== 'undefined' && globalThis.crypto && globalThis.crypto.subtle) {
