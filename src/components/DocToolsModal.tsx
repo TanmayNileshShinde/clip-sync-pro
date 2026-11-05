@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import {
   X,
   Check,
@@ -19,6 +19,8 @@ import {
   Layers,
   FileText,
   Copy,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import { playClickSound, playSuccessSound, playErrorSound, playCopySound } from '../utils/sound'
 import {
@@ -113,10 +115,42 @@ export const DocToolsModal: React.FC<DocToolsModalProps> = ({
   const [textDocTitle, setTextDocTitle] = useState('Document_Export')
   const [textDocBody, setTextDocBody] = useState('')
   const tabsRef = useRef<HTMLDivElement>(null)
+  const [canScrollLeft, setCanScrollLeft] = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(false)
+
+  const checkScrollable = () => {
+    if (tabsRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = tabsRef.current
+      setCanScrollLeft(scrollLeft > 4)
+      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 4)
+    }
+  }
+
+  useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(checkScrollable, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [isOpen])
+
+  useEffect(() => {
+    window.addEventListener('resize', checkScrollable)
+    return () => window.removeEventListener('resize', checkScrollable)
+  }, [])
+
+  const scrollTabs = (direction: 'left' | 'right') => {
+    playClickSound()
+    if (tabsRef.current) {
+      const delta = direction === 'left' ? -220 : 220
+      tabsRef.current.scrollBy({ left: delta, behavior: 'smooth' })
+      setTimeout(checkScrollable, 300)
+    }
+  }
 
   const handleTabsWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     if (e.deltaY !== 0 && tabsRef.current) {
       tabsRef.current.scrollLeft += e.deltaY
+      checkScrollable()
     }
   }
 
@@ -571,7 +605,19 @@ export const DocToolsModal: React.FC<DocToolsModalProps> = ({
         </div>
 
         {/* Navigation Tabs */}
-        <div className="doctools-tabs" ref={tabsRef} onWheel={handleTabsWheel}>
+        <div className="doctools-tabs-wrapper">
+          {canScrollLeft && (
+            <button
+              type="button"
+              className="tabs-nav-arrow tabs-arrow-left"
+              onClick={() => scrollTabs('left')}
+              title="Scroll tabs left"
+              aria-label="Scroll tabs left"
+            >
+              <ChevronLeft size={16} />
+            </button>
+          )}
+          <div className="doctools-tabs" ref={tabsRef} onWheel={handleTabsWheel} onScroll={checkScrollable}>
           <button
             type="button"
             className={`doc-tab ${activeTab === 'img-to-pdf' ? 'active' : ''}`}
@@ -663,6 +709,18 @@ export const DocToolsModal: React.FC<DocToolsModalProps> = ({
             <span>Text to PDF</span>
           </button>
         </div>
+        {canScrollRight && (
+          <button
+            type="button"
+            className="tabs-nav-arrow tabs-arrow-right"
+            onClick={() => scrollTabs('right')}
+            title="Scroll tabs right"
+            aria-label="Scroll tabs right"
+          >
+            <ChevronRight size={16} />
+          </button>
+        )}
+      </div>
 
         {/* Alerts */}
         {errorMsg && (

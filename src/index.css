@@ -1959,7 +1959,7 @@ a:hover {
    DOCUMENT & PDF TOOLS MODAL
    ======================================================== */
 .doctools-modal {
-  max-width: 760px;
+  max-width: 900px;
   width: 95vw;
   max-height: 90vh;
   display: flex;
@@ -1986,6 +1986,48 @@ a:hover {
   border-radius: var(--radius-full);
 }
 
+
+.doctools-tabs-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: var(--input-bg);
+  border-bottom: 1px solid var(--card-border);
+}
+
+.tabs-nav-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  color: var(--text-primary);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease;
+}
+
+.tabs-nav-arrow:hover {
+  background: var(--accent-primary);
+  color: var(--accent-contrast);
+  border-color: var(--accent-primary);
+}
+
+.tabs-arrow-left {
+  left: 6px;
+}
+
+.tabs-arrow-right {
+  right: 6px;
+}
+
 .doctools-tabs {
   display: flex;
   overflow-x: auto;
@@ -2007,10 +2049,10 @@ a:hover {
 }
 
 .doc-tab {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  padding: 0.65rem 1rem;
+  padding: 0.65rem 0.85rem;
   border: none;
   background: transparent;
   color: var(--text-secondary);
