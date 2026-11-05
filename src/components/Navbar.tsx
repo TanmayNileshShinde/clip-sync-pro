@@ -35,7 +35,15 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   setActiveTab,
 }) => {
-  const [starCount, setStarCount] = useState<number | null>(null)
+  const [starCount, setStarCount] = useState<number>(() => {
+    try {
+      const cached = localStorage.getItem('clipsync_stars')
+      const parsed = cached ? Number.parseInt(cached, 10) : NaN
+      return !Number.isNaN(parsed) && parsed >= 2 ? parsed : 2
+    } catch {
+      return 2
+    }
+  })
 
   useEffect(() => {
     let isMounted = true
@@ -46,11 +54,17 @@ export const Navbar: React.FC<NavbarProps> = ({
       })
       .then((data) => {
         if (isMounted && typeof data?.stargazers_count === 'number') {
-          setStarCount(data.stargazers_count)
+          const freshCount = Math.max(data.stargazers_count, 2)
+          setStarCount(freshCount)
+          try {
+            localStorage.setItem('clipsync_stars', String(freshCount))
+          } catch {
+            // ignore storage errors
+          }
         }
       })
       .catch(() => {
-        // Silently fallback if rate-limited or offline
+        // Silently preserve cached/default count if rate-limited or offline
       })
     return () => {
       isMounted = false
@@ -116,9 +130,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             <Star size={15} className="star-icon" />
             <span className="action-label">Star</span>
-            {starCount !== null && (
-              <span className="star-count-badge">{starCount}</span>
-            )}
+            <span className="star-count-badge">{starCount}</span>
           </a>
 
           {/* PDF & Document Tools Button */}
