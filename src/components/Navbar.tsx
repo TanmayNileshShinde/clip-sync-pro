@@ -63,7 +63,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Logo */}
         <div className="navbar-logo" onClick={() => setActiveTab('send')} role="button" tabIndex={0}>
           <div className="logo-icon-wrap">
-            <Clipboard className="logo-icon" />
+            <Clipboard className="logo-icon" size={20} />
           </div>
           <div className="logo-text">
             <span className="brand-name">ClipSync<span className="brand-badge">PRO</span></span>
@@ -114,7 +114,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             title="Star ClipSync PRO on GitHub"
             aria-label="Star ClipSync PRO on GitHub"
           >
-            <Star size={16} className="star-icon" />
+            <Star size={15} className="star-icon" />
             <span className="action-label">Star</span>
             {starCount !== null && (
               <span className="star-count-badge">{starCount}</span>
@@ -132,7 +132,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             title="PDF Tools (Image to PDF, Merge PDF, Text to PDF...)"
             aria-label="PDF Tools"
           >
-            <FileText size={18} />
+            <FileText size={16} />
             <span className="action-label">PDF Tools</span>
           </button>
 
@@ -147,7 +147,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             title="Clip History"
             aria-label="Clip History"
           >
-            <History size={18} />
+            <History size={16} />
             <span className="action-label">History</span>
             {historyCount > 0 && <span className="badge-count">{historyCount}</span>}
           </button>
@@ -155,7 +155,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Sound Toggle */}
           <button
             type="button"
-            className="icon-action-btn"
+            className="icon-action-btn sound-toggle"
             onClick={() => {
               setSoundEnabled(!soundEnabled)
               playClickSound()
@@ -163,7 +163,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             title={soundEnabled ? 'Mute audio feedback' : 'Unmute audio feedback'}
             aria-label="Toggle Sound"
           >
-            {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} className="muted-icon" />}
+            {soundEnabled ? <Volume2 size={17} /> : <VolumeX size={17} className="muted-icon" />}
           </button>
 
           {/* Dark / Light Mode Toggle */}
@@ -177,7 +177,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
             aria-label="Toggle Dark/Light Mode"
           >
-            {darkMode ? <Sun size={18} className="sun-icon" /> : <Moon size={18} />}
+            {darkMode ? <Sun size={17} className="sun-icon" /> : <Moon size={17} />}
           </button>
         </div>
       </div>
