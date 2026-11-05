@@ -378,6 +378,52 @@ a:hover {
   transform: translateY(-1px);
 }
 
+
+.icon-action-btn.github-star-btn {
+  text-decoration: none;
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.12) 0%, rgba(245, 158, 11, 0.05) 100%);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: var(--text-primary);
+  font-weight: 600;
+  gap: 0.4rem;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.icon-action-btn.github-star-btn:hover {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.22) 0%, rgba(245, 158, 11, 0.15) 100%);
+  border-color: #f59e0b;
+  transform: translateY(-1.5px);
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.25);
+  color: #f59e0b;
+}
+
+.icon-action-btn.github-star-btn .star-icon {
+  color: #f59e0b;
+  fill: #f59e0b;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.icon-action-btn.github-star-btn:hover .star-icon {
+  transform: scale(1.22) rotate(14deg);
+}
+
+.star-count-badge {
+  background: rgba(245, 158, 11, 0.18);
+  color: #d97706;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.1rem 0.42rem;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  line-height: 1.2;
+}
+
+[data-theme="dark"] .star-count-badge {
+  background: rgba(245, 158, 11, 0.25);
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.4);
+}
+
 .icon-action-btn.pdf-tools-btn {
   color: var(--accent-primary);
   border-color: var(--accent-border);

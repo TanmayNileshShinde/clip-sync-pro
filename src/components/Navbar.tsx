@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Clipboard,
   History,
@@ -8,6 +8,7 @@ import {
   Volume2,
   VolumeX,
   Wifi,
+  Star,
 } from 'lucide-react'
 import { playClickSound } from '../utils/sound'
 
@@ -34,6 +35,28 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   setActiveTab,
 }) => {
+  const [starCount, setStarCount] = useState<number | null>(null)
+
+  useEffect(() => {
+    let isMounted = true
+    fetch('https://api.github.com/repos/TanmayNileshShinde/clip-sync-pro')
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to fetch stars')
+        return res.json()
+      })
+      .then((data) => {
+        if (isMounted && typeof data?.stargazers_count === 'number') {
+          setStarCount(data.stargazers_count)
+        }
+      })
+      .catch(() => {
+        // Silently fallback if rate-limited or offline
+      })
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
   return (
     <header className="navbar">
       <div className="navbar-container">
@@ -80,6 +103,23 @@ export const Navbar: React.FC<NavbarProps> = ({
             <Wifi className="status-icon" size={14} />
             <span className="status-text">Live Sync</span>
           </div>
+
+          {/* GitHub Star Button */}
+          <a
+            href="https://github.com/TanmayNileshShinde/clip-sync-pro"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="icon-action-btn github-star-btn"
+            onClick={() => playClickSound()}
+            title="Star ClipSync PRO on GitHub"
+            aria-label="Star ClipSync PRO on GitHub"
+          >
+            <Star size={16} className="star-icon" />
+            <span className="action-label">Star</span>
+            {starCount !== null && (
+              <span className="star-count-badge">{starCount}</span>
+            )}
+          </a>
 
           {/* PDF & Document Tools Button */}
           <button
