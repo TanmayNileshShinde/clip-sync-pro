@@ -112,6 +112,13 @@ export const DocToolsModal: React.FC<DocToolsModalProps> = ({
   // text pdf
   const [textDocTitle, setTextDocTitle] = useState('Document_Export')
   const [textDocBody, setTextDocBody] = useState('')
+  const tabsRef = useRef<HTMLDivElement>(null)
+
+  const handleTabsWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (e.deltaY !== 0 && tabsRef.current) {
+      tabsRef.current.scrollLeft += e.deltaY
+    }
+  }
 
   if (!isOpen) return null
 
@@ -564,7 +571,7 @@ export const DocToolsModal: React.FC<DocToolsModalProps> = ({
         </div>
 
         {/* Navigation Tabs */}
-        <div className="doctools-tabs">
+        <div className="doctools-tabs" ref={tabsRef} onWheel={handleTabsWheel}>
           <button
             type="button"
             className={`doc-tab ${activeTab === 'img-to-pdf' ? 'active' : ''}`}

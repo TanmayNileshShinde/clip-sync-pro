@@ -103,6 +103,32 @@ body {
   overflow-x: hidden;
 }
 
+
+/* Sleek Modern Global Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 9999px;
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.45);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.25) transparent;
+}
+
 #root {
   min-height: 100vh;
   display: flex;
@@ -1963,10 +1989,21 @@ a:hover {
 .doctools-tabs {
   display: flex;
   overflow-x: auto;
+  overflow-y: hidden;
   border-bottom: 1px solid var(--card-border);
   background: var(--input-bg);
-  padding: 0.35rem 0.85rem 0;
-  gap: 0.25rem;
+  padding: 0.4rem 0.85rem 0;
+  gap: 0.35rem;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+.doctools-tabs::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .doc-tab {
